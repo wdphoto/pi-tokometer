@@ -214,4 +214,3 @@ export function speedometerText(speedometer: FooterSpeedometer | undefined, them
   const current = fg(theme, "dim", tps(speedometer.tps));
   return peakText ? `${meterText} ${current} · ${peakText}` : `${meterText} ${current}`;
 }
-

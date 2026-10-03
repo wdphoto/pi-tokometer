@@ -316,4 +316,3 @@ test("recent speed is bounded and recovers after a burst", () => {
   assert.equal(tracker.snapshot(5000)?.tps, 20);
   assert.equal(tracker.snapshot(6100)?.tps, 0);
 });
-

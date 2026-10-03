@@ -40,4 +40,3 @@ export async function withStoreLock<T>(path: string, task: () => Promise<T>, tim
     await rm(lock, { recursive: true, force: true });
   }
 }
-
