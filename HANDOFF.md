@@ -119,6 +119,6 @@ No tags, publication, or release commands were authorized.
   `  42/  68↑ t/s`.
 - README and agent instructions no longer describe this as part of another project.
   The original copyright attribution remains in LICENSE as required by MIT.
-- Old npm/package metadata and scripts still exist in `package.json` and the
-  lockfile. The user does not want npm packaging/publishing; metadata cleanup
-  was not part of this pass. Existing local dev tools were used without installs.
+- Distribution is GitHub-only. `package.json` is `private` with no npm packaging
+  metadata (`files`, `keywords`, pack scripts removed); never publish to npm.
+  The lockfile remains for reproducible local dev installs.
