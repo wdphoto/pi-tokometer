@@ -43,8 +43,7 @@ pi install .
 ```
 
 This registers the local directory without copying it. Restart Pi or run
-`/reload` after registration or code changes. Distribution is GitHub-only;
-there is no npm package.
+`/reload` after registration or code changes. No npm installation is needed.
 
 ## Commands
 

@@ -2,8 +2,7 @@
 
 Standalone Pi extension showing estimated model output speed in the footer.
 Local and TUI-only: no network calls, telemetry, saved response text, or runtime
-dependencies. Distributed from GitHub only; there is no npm package and the
-manifest stays `private`.
+dependencies.
 
 ## Current behavior
 
@@ -50,37 +49,8 @@ Under `extensions/tokometer/`:
   `docs/tui.md` fully, plus relevant examples.
 - Keep README user-facing, with current commands and visual examples.
   Note meaningful changes in CHANGE.md.
-- No npm publishing or packaging metadata. Distribution is GitHub-only:
-  `package.json` stays `private`, with no `files`/`keywords`/pack scripts.
-  Don't change local Pi settings, create tags, or make releases outside the
-  shorthand below.
-
-## Release shorthand
-
-When the user directly instructs **"ship it"**, treat it as explicit authorization
-for this workflow in this repository. Merely quoting or discussing the phrase is
-not authorization.
-
-1. Review the working tree and diff. Include the intended changes; preserve
-   unrelated work and ask if release scope is ambiguous. Check the branch and
-   remote; do not force-push or discard changes.
-2. Increment the experimental patch version (`0.0.x`) unless the user specifies
-   another version. Align `package.json`, `package-lock.json`, the README's current
-   version, and `CHANGE.md`; move `Unreleased` notes into a dated entry.
-3. Run the testing commands below plus `git diff --check`. Stop on failure.
-4. Commit the release changes, create an annotated `v<version>` tag at that
-   commit, and push the branch and that specific tag to the GitHub remote.
-   Never move or overwrite an existing release tag.
-5. Create a GitHub Release for that tag using the version's changelog notes
-   (prefer `gh release create --verify-tag`). Never publish to npm.
-6. Report version, commit, tag, release URL, validation, and final working-tree
-   status. Do not run package updates on users' installations.
-
-Git tags identify immutable version checkpoints; GitHub Releases attach notes to
-those tags. Pi does not select versions from GitHub Releases. Unpinned GitHub
-installs follow the default branch when updated with `pi update <source>` or
-`pi update --extensions`; tag/commit-pinned installs remain pinned. Users reload
-existing sessions after updating.
+- No npm packaging or publishing. Don't change local Pi settings, create tags,
+  or make releases without permission.
 
 ## Testing
 

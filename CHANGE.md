@@ -1,9 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- Distribution is GitHub-only: `package.json` is now `private`, and npm packaging metadata (`files`, `keywords`, `pack:dry`) is removed.
-
 ## 0.0.3 — 2026-10-03
 
 - Added `visual tach` (tachometer): a fixed five-block RPM-style bar using saved level thresholds and colors as gears. Fill builds within each gear and resets on upshifts; downshifts skip directly with a 5% hysteresis margin.
