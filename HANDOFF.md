@@ -2,12 +2,22 @@
 
 ## Paused here
 
-The current implementation is ready for further manual use. Release v0.0.3
+Release v0.0.4 adds the painted-dial tach brightness ladder and shared thresholds
+0/10/100/200/500 t/s. Validation: TypeScript, 32 offline tests, and diff checks.
+No npm publish. Existing custom settings remain preserved.
+
+Previous release v0.0.3
 ships the tach visual, the five-level recalibration (0/10/50/100/300 t/s),
 the sanitizer-proof readout (non-breaking-space padding), the k-only formatter,
-and the final `rev` → `tach` cleanup. It was committed and pushed to origin/main,
-then tagged and published as a GitHub Release. No npm publish occurred.
-Preserve any subsequent working-tree changes when resuming.
+and the final `rev` → `tach` cleanup. It was committed and pushed to origin/main
+(`2d3d9b3`), tagged `v0.0.3`, and published as a GitHub Release. No npm publish
+occurred, and none is planned for now; the repo ships GitHub-only.
+
+After the release, an over-eager attempt to strip npm packaging metadata from
+`package.json` (`f650308`) was reverted (`410e369`). That revert restored the previous
+release tree; npm metadata is retained deliberately — do not remove it
+without an explicit request. Preserve any subsequent working-tree changes when
+resuming.
 
 ## Current behavior
 
@@ -26,8 +36,10 @@ Preserve any subsequent working-tree changes when resuming.
 - Visual cycle: single → multi → chase → tach. No audio-style meter or flash option.
 - Tach uses five blocks, saved thresholds/colors as gears, 500ms sampling, direct
   downshifts with 5% hysteresis, and no blinking. Top gear spans the max of its
-  minimum, previous distinct gap, and 10 t/s (300–600 with defaults). Pauses dim
+  minimum, previous distinct gap, and 10 t/s (500–1000 with defaults). Pauses dim
   without downshifting; completion holds the exact final average's band/fill.
+  Lit blocks brighten left to right through a five-step shade ladder (45%→100%) of
+  the gear color; unlit blocks stay dim.
 - Single blink periods: 400/400/400/300/150ms by level.
 - Multi pulse periods: 1400/1200/1000/800/600ms.
 - Chase steps: 600/500/400/300/200ms. One lit square pulses instead of chasing.
@@ -47,9 +59,9 @@ Five default levels, using fixed Catppuccin Mocha colors:
 | --- | --- | --- |
 | 0 | Red — slow | `#f38ba8` |
 | 10 | Peach | `#fab387` |
-| 50 | Yellow | `#f9e2af` |
-| 100 | Green | `#a6e3a1` |
-| 300 | Blue — fastest | `#89b4fa` |
+| 100 | Yellow | `#f9e2af` |
+| 200 | Green | `#a6e3a1` |
+| 500 | Blue — fastest | `#89b4fa` |
 
 Custom `levels` are retained. Defaults do not replace saved custom colors.
 Valid entries sort by minimum speed; invalid entries are discarded, with defaults
@@ -59,6 +71,10 @@ unsupported versions are not overwritten.
 Saved visual identifiers: `dot` = single, `squares` = multi, `chase` = chase.
 Retired `meter`/`flash` identifiers load as chase. `compact` hides the visual.
 Retired number-visibility flags are ignored and removed on the next save.
+
+The operator's live file currently uses `visual: squares` with the five default
+levels. Earlier custom palettes are backed up beside it as
+`~/.pi/agent/pi-tokometer.json.bak.*` (levels, sixband, pre-default).
 
 ## Files changed this session
 
@@ -90,8 +106,8 @@ Last full run passed:
 git diff --check
 ```
 
-31 tests passed, including fixed-width formatting, compact-unit rounding boundaries,
-footer-sanitizer padding, tach fill/colors, gear hysteresis, settings changes,
+32 tests passed, including fixed-width formatting, compact-unit rounding boundaries,
+footer-sanitizer padding, tach fill/ladder/colors, gear hysteresis, settings changes,
 sampling, pauses, and holds. README's settings JSON was parsed and checked for version 1 and
 its levels array. No automated live-provider tests were run. Manual visual feel,
 narrow-terminal rendering, and light-theme contrast still need hands-on review.
@@ -101,12 +117,15 @@ narrow-terminal rendering, and light-theme contrast still need hands-on review.
 With permission, the local extension entry point was registered in the user-level
 Pi `settings.json` earlier in the session. No package installation was performed.
 Other loading entries were left unchanged. Run `/reload` to use the latest code.
-Display preferences themselves were not edited directly by the agent.
+Display preferences are user-managed; the agent only rewrote the extension's own
+`pi-tokometer.json` when asked to recalibrate.
 
 Implementation and tests used no network requests or credential access.
-The user subsequently authorized committing and pushing this work; that push
-uses the configured Git authentication and updates the remote branch.
-No tags, publication, or release commands were authorized.
+Authorized remote actions this session: pushed `main` (including release commit
+`2d3d9b3` and revert `410e369`), pushed annotated tag `v0.0.3`, and created the
+GitHub Release `https://github.com/wdphoto/pi-tokometer/releases/tag/v0.0.3`
+via `gh release create --verify-tag`. No npm publish. Authentication came from
+the configured Git remote and `gh` keyring; no credentials were read or printed.
 
 ## Resume notes
 
@@ -119,6 +138,8 @@ No tags, publication, or release commands were authorized.
   `  42/  68↑ t/s`.
 - README and agent instructions no longer describe this as part of another project.
   The original copyright attribution remains in LICENSE as required by MIT.
-- Old npm/package metadata and scripts still exist in `package.json` and the
-  lockfile. The user does not want npm packaging/publishing; metadata cleanup
-  was not part of this pass. Existing local dev tools were used without installs.
+- Releases are GitHub-only for now: the user says **"ship it"** to authorize a
+  patch version bump, changelog freeze, validation, commit, annotated `vX.Y.Z`
+  tag, push, and GitHub Release (`gh release create --verify-tag`). Never publish
+  to npm, and do not remove npm packaging metadata (`files`, `keywords`,
+  `pack:dry`) — an attempt to strip it was reverted.

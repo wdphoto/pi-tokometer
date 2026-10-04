@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.4 — 2026-10-03
+
+- Recalibrated shared speed levels and tach gears to 0/10/100/200/500 t/s.
+- Tach lit blocks brighten left to right through a five-step shade ladder of the gear color (painted dial); unlit blocks stay dim.
+
 ## 0.0.3 — 2026-10-03
 
 - Added `visual tach` (tachometer): a fixed five-block RPM-style bar using saved level thresholds and colors as gears. Fill builds within each gear and resets on upshifts; downshifts skip directly with a 5% hysteresis margin.

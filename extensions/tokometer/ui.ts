@@ -66,6 +66,8 @@ const BLINK_PERIODS = [1400, 1200, 1000, 800, 600] as const;
 const SINGLE_BLINK_PERIODS = [400, 400, 400, 300, 150] as const;
 const CHASE_STEPS = [600, 500, 400, 300, 200] as const;
 const CHASE_BASE_FACTOR = 0.55;
+/** Painted-dial ladder: five brightness steps of the gear color, dark to bright. */
+const TACH_SHADES = [0.45, 0.6, 0.75, 0.9, 1] as const;
 const BRIGHT_MS = 200;
 const ACTIVE_SQUARE = "■";
 const INACTIVE_SQUARE = "□";
@@ -212,7 +214,7 @@ export function speedometerText(speedometer: FooterSpeedometer | undefined, them
   const fill = visual === "tach" && state.active ? tachFill(tach, levels) : 0;
   const meterText = compact ? "" : visual === "tach"
     ? Array.from({ length: 5 }, (_, i) => i < fill
-      ? colorFg(theme, levelRgb(levels, tach.gear), ACTIVE_SQUARE)
+      ? colorFg(theme, dimRgb(levelRgb(levels, tach.gear), TACH_SHADES[i]!), ACTIVE_SQUARE)
       : fg(theme, "dim", INACTIVE_SQUARE)).join("")
     : visualText(speedometer, theme, state, visual, steady, now, levels);
   const peak = peakEnabled ? peakTps(speedometer.peak) : "";

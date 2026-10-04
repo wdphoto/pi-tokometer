@@ -19,8 +19,10 @@ dependencies.
 - Tach: fixed five blocks; saved levels define gear thresholds/colors. Refresh every
   500ms; direct downshifts with 5% hysteresis, no blinking. Top span is the max of
   the gear minimum, previous distinct gap, and 10 t/s. Pauses retain the gear.
+  Lit blocks brighten left to right through a five-step shade ladder (45%→100%)
+  of the gear color; unlit blocks stay dim.
 - Five default levels: soft red, peach, yellow, green, blue. Red means slow.
-  Thresholds are 0/10/50/100/300 t/s.
+  Thresholds are 0/10/100/200/500 t/s.
 - Settings: `~/.pi/agent/pi-tokometer.json`, respecting `PI_CODING_AGENT_DIR`.
   Custom `levels` pair minimum speeds with hex colors.
 - Live returns to zero on completion. Keep the last peak until the next response

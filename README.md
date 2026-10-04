@@ -2,7 +2,7 @@
 
 Shows estimated model output tokens per second in Pi’s footer.
 
-Current version: **0.0.3**. See [CHANGE.md](CHANGE.md) for changes.
+Current version: **0.0.4**. See [CHANGE.md](CHANGE.md) for changes.
 
 ```text
 ■   42/  68↑ t/s
@@ -82,7 +82,7 @@ These are plain-text previews; the actual squares use the colors below.
 ```text
 ■□□□□    5/   8↑ t/s
 ■■□□□   42/  68↑ t/s
-■■■■□  150/ 180↑ t/s
+■■■□□  150/ 180↑ t/s
 ```
 
 ```text
@@ -106,14 +106,15 @@ mark the highlight for this example; they are not part of the footer:
 ```
 
 **Tach** — a tachometer-style bar: five blocks show revs within the current gear. Color identifies the
-gear, using the same saved `levels` as every other visual:
+gear, using the same saved `levels` as every other visual. Within a gear the lit
+blocks brighten left to right through a five-step shade ladder (45% to 100% of the gear color):
 
 ```text
-■■□□□   18/ 150↑ t/s   peach: building revs
-■■■■■   48/ 150↑ t/s   peach: near redline
-■□□□□   50/ 150↑ t/s   yellow: shifted up
-■■■■□   80/ 150↑ t/s   yellow: building again
-■□□□□  100/ 150↑ t/s   green: shifted up
+■□□□□   18/ 200↑ t/s   peach: building revs
+■■■□□   48/ 200↑ t/s   peach: building again
+■□□□□  100/ 200↑ t/s   yellow: shifted up
+■■■□□  150/ 200↑ t/s   yellow: building again
+■□□□□  200/ 200↑ t/s   green: shifted up
 ```
 
 The labels above explain the colors; they are not part of the footer.
@@ -131,7 +132,7 @@ exact gear/fill for three seconds.
 
 Tach always uses five blocks, even with custom levels. The top gear's span is the
 largest of its minimum, its gap from the previous distinct minimum, or 10 t/s.
-With defaults, the top gear fills from 300 to 600 t/s, then stays full.
+With defaults, the top gear fills from 500 to 1000 t/s, then stays full.
 This is an RPM-style visual metaphor; the measurement remains tokens per second.
 
 **Numbers only** — no visual, same live/peak reading:
@@ -156,10 +157,10 @@ green, and blue as speed improves.
 | t/s | Color | Lit squares in multi/chase |
 | --- | --- | --- |
 | <10 | Red | 1 |
-| 10–<50 | Peach | 2 |
-| 50–<100 | Yellow | 3 |
-| 100–<300 | Green | 4 |
-| 300+ | Blue | 5 |
+| 10–<100 | Peach | 2 |
+| 100–<200 | Yellow | 3 |
+| 200–<500 | Green | 4 |
+| 500+ | Blue | 5 |
 
 The default bar has five equal-width blocks. Each is 20% of the visual width,
 not 20% of a fixed maximum speed.
@@ -171,6 +172,8 @@ not 20% of a fixed maximum speed.
   1.4 / 1.2 / 1.0 / 0.8 / 0.6 seconds.
 - **Chase:** a brighter highlight moves through the lit squares. Step intervals
   are 0.6 / 0.5 / 0.4 / 0.3 / 0.2 seconds. With one lit square, it pulses instead.
+- **Tach:** within each gear, lit blocks use a five-step brightness ladder of the
+  gear color, dark (45%) to bright (100%). Unlit blocks stay dim.
 
 Visuals dim after 600ms without output. After completion, they hold the final
 average’s color/level for three seconds, then dim. The numeric peak stays.
@@ -194,9 +197,9 @@ This is a valid settings file with the defaults:
   "levels": [
     { "min": 0, "color": "#f38ba8" },
     { "min": 10, "color": "#fab387" },
-    { "min": 50, "color": "#f9e2af" },
-    { "min": 100, "color": "#a6e3a1" },
-    { "min": 300, "color": "#89b4fa" }
+    { "min": 100, "color": "#f9e2af" },
+    { "min": 200, "color": "#a6e3a1" },
+    { "min": 500, "color": "#89b4fa" }
   ]
 }
 ```
@@ -206,7 +209,7 @@ Saved visual names are `dot` (single), `squares` (multi), `chase`, and `tach`.
 
 Each level pairs a minimum speed with a `#rrggbb` color. Levels sort by `min`;
 multi/chase have one position per level. A slow model might use thresholds
-`0, 5, 15, 30, 60`; a very fast one `0, 100, 200, 300, 500`.
+`0, 5, 15, 30, 60`; a very fast one `0, 250, 500, 1000, 2000`.
 
 Omit `levels` to use the defaults. Existing custom levels are preserved.
 Invalid entries are discarded; if none remain, defaults are used. A command

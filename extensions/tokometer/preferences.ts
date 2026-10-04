@@ -17,9 +17,9 @@ export interface ToksLevel {
 export const DEFAULT_LEVELS: readonly ToksLevel[] = [
   { min: 0, color: "#f38ba8" }, // red: slow
   { min: 10, color: "#fab387" }, // peach
-  { min: 50, color: "#f9e2af" }, // yellow
-  { min: 100, color: "#a6e3a1" }, // green
-  { min: 300, color: "#89b4fa" }, // blue: very fast
+  { min: 100, color: "#f9e2af" }, // yellow
+  { min: 200, color: "#a6e3a1" }, // green
+  { min: 500, color: "#89b4fa" }, // blue: very fast
 ];
 /** Keep well-formed entries in ascending order; anything unusable falls back to the defaults. */
 export function resolveToksLevels(value: unknown): ToksLevel[] {
