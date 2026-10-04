@@ -2,7 +2,7 @@
 
 Shows estimated model output tokens per second in Pi’s footer.
 
-Current version: **0.0.2**. See [CHANGE.md](CHANGE.md) for changes.
+Current version: **0.0.3**. See [CHANGE.md](CHANGE.md) for changes.
 
 ```text
 ■   42/  68↑ t/s

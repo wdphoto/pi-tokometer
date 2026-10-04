@@ -1,14 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.0.3 — 2026-10-03
 
-- Simplified the width formatter to `k` only: values up to `1.0k` format as before, and anything at or above 999,500 t/s clamps to `999k` (the M/B/T and `999+` paths are gone).
-- Kept the four-column readout intact in Pi's footer: numeric padding now uses non-breaking spaces, and numbers-only statuses start with a zero-width prefix. Pi's footer sanitizer collapses runs of regular spaces and trims edges, which previously destroyed the padding and shifted the row as values changed.
-- Removed the temporary `rev` command/settings alias and renamed internals to `tach`; `tach` is the only supported name.
-- Recalibrated default speed levels to 0/10/50/100/300 t/s; five levels and five squares, blue as the fastest color.
 - Added `visual tach` (tachometer): a fixed five-block RPM-style bar using saved level thresholds and colors as gears. Fill builds within each gear and resets on upshifts; downshifts skip directly with a 5% hysteresis margin.
 - Tach refreshes every 500ms without blinking, dims on pauses, and holds the final average's gear/fill for three seconds. The top gear uses a derived ceiling (600 t/s with defaults).
 - Added tach to visual cycling, settings persistence, documentation, and offline tests.
+- Recalibrated default speed levels to 0/10/50/100/300 t/s; five levels and five squares, blue as the fastest color.
+- Removed the temporary `rev` command/settings alias and renamed internals to `tach`; `tach` is the only supported name.
+- Kept the four-column readout intact in Pi's footer: numeric padding uses non-breaking spaces, and numbers-only statuses start with a zero-width prefix. Pi's footer sanitizer collapses runs of regular spaces and trims edges, which previously destroyed the padding and shifted the row as values changed.
+- Simplified the width formatter to `k` only: values up to `1.0k` format as before, and anything at or above 999,500 t/s clamps to `999k` (the M/B/T and `999+` paths are gone).
 
 ## 0.0.2
 

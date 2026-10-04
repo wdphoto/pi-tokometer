@@ -1,6 +1,6 @@
 {
   "name": "pi-tokometer",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A local live assistant token-speed meter for the Pi coding agent.",
   "type": "module",
   "license": "MIT",

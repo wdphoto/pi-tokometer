@@ -2,16 +2,12 @@
 
 ## Paused here
 
-The current implementation is ready for further manual use. No feature request
-is pending. Local version is now 0.0.2; changes are listed under 0.0.2 in CHANGE.md.
-The 0.0.2 fixed-width changes were committed and pushed to origin/main (be24673).
-The tach feature and docs were committed and pushed to origin/main (4265427),
-documented under Unreleased. The latest cleanup removes the unused `rev`
-command/settings alias; `tach` is the only supported name for this visual.
-No version bump, tag, publication, or remote release was requested.
-The user authorized a commit and push to origin/main after this handoff was
-written. Check Git history/status for the outcome. No tag, release, or publication
-was requested. Preserve any subsequent working-tree changes when resuming.
+The current implementation is ready for further manual use. Release v0.0.3
+ships the tach visual, the five-level recalibration (0/10/50/100/300 t/s),
+the sanitizer-proof readout (non-breaking-space padding), the k-only formatter,
+and the final `rev` → `tach` cleanup. It was committed and pushed to origin/main,
+then tagged and published as a GitHub Release. No npm publish occurred.
+Preserve any subsequent working-tree changes when resuming.
 
 ## Current behavior
 
