@@ -1,10 +1,10 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { defaultPreferences, loadPreferences, resolvePreferencesPath, updatePreferences, type Preferences, type ToksVisual } from "./preferences.ts";
+import { defaultPreferences, loadPreferences, resolvePreferencesPath, updatePreferences, type Preferences } from "./preferences.ts";
 import { AssistantSpeedTracker } from "./speedometer.ts";
 import { speedometerText, type FooterSpeedometer } from "./ui.ts";
 
 export const STATUS_KEY = "pi-tokometer";
-const USAGE = "Usage: /tokometer [on|off|compact|full|led|dot|squares|chase|cycle|steady|blink|peak [on|off]|status]";
+const USAGE = "Usage: /tokometer [on|off|visual single|multi|chase|cycle|off]";
 
 export default function piTokometer(pi: ExtensionAPI) {
   const path = resolvePreferencesPath();
@@ -14,25 +14,40 @@ export default function piTokometer(pi: ExtensionAPI) {
   let streaming = false;
   let completedUntil = 0;
   let completed: FooterSpeedometer | undefined;
+  let displayedPeak = 0;
+  let readoutTps = 0;
+  let readoutPeak = 0;
+  let lastReadoutAt: number | undefined;
 
   function stopTimer() {
     if (timer) clearInterval(timer);
     timer = undefined;
   }
   function reset() {
-    stopTimer(); tracker.reset(); streaming = false; completedUntil = 0; completed = undefined;
+    stopTimer(); tracker.reset(); streaming = false; completedUntil = 0; completed = undefined; displayedPeak = 0;
+    readoutTps = 0; readoutPeak = 0; lastReadoutAt = undefined;
   }
   function render(ctx: ExtensionContext) {
     if (ctx.mode !== "tui") { stopTimer(); return; }
     const now = Date.now();
-    if (completedUntil && now >= completedUntil) { completedUntil = 0; completed = undefined; }
+    if (completedUntil && now >= completedUntil) {
+      completedUntil = 0;
+      completed = completed?.peak ? { tps: 0, peak: completed.peak } : undefined;
+    }
     const meter = streaming ? tracker.snapshot(now) : completed;
+    if (meter?.peak !== undefined) displayedPeak = meter.peak;
+    // Numbers refresh independently of the animation. Completion returns live to zero immediately.
+    if (!streaming || lastReadoutAt === undefined || now - lastReadoutAt >= 500) {
+      readoutTps = streaming ? meter?.tps ?? 0 : 0;
+      readoutPeak = displayedPeak;
+      lastReadoutAt = now;
+    }
     ctx.ui.setStatus(STATUS_KEY, preferences.enabled
-      ? speedometerText(meter ?? { tps: 0 }, ctx.ui.theme, preferences.compact, preferences.ledOnly, preferences.steady, now, preferences.peakEnabled, { visual: preferences.visual })
+      ? speedometerText({ ...(meter ?? { tps: 0 }), peak: readoutPeak }, ctx.ui.theme, preferences.compact, false, false, now, true, { visual: preferences.visual, currentTps: readoutTps, levels: preferences.levels })
       : undefined);
     if (!preferences.enabled || (!streaming && !completedUntil)) { stopTimer(); return; }
     if (!timer) {
-      timer = setInterval(() => render(ctx), 200);
+      timer = setInterval(() => render(ctx), 25);
       timer.unref();
     }
   }
@@ -44,25 +59,24 @@ export default function piTokometer(pi: ExtensionAPI) {
   }
 
   pi.registerCommand("tokometer", {
-    description: "Toggle or configure the local assistant tok/s meter",
+    description: "Show or configure estimated model output tokens per second",
     handler: async (args, ctx) => {
       const command = args.trim().replace(/\s+/g, " ");
-      if (command === "status") {
-        await sync(ctx); render(ctx);
-        if (ctx.hasUI) ctx.ui.notify(`pi-tokometer: ${preferences.enabled ? "on" : "off"} · ${preferences.compact ? "compact" : preferences.ledOnly ? "led" : "full"} · ${preferences.visual} · ${preferences.steady ? "steady" : "blink"} · peak ${preferences.peakEnabled ? "on" : "off"}\nSettings: ${path}`, "info");
-        return;
-      }
-      const valid = ["", "on", "off", "compact", "full", "led", "dot", "squares", "chase", "cycle", "steady", "blink", "peak", "peak on", "peak off"];
+      const valid = ["", "on", "off", "visual single", "visual multi", "visual chase", "visual cycle", "visual off"];
       if (!valid.includes(command)) { if (ctx.hasUI) ctx.ui.notify(USAGE, "warning"); return; }
       try {
         preferences = await updatePreferences(path, (current): Partial<Preferences> => {
           if (!command || command === "on" || command === "off") return { enabled: command ? command === "on" : !current.enabled };
-          if (command === "steady" || command === "blink") return { steady: command === "steady" };
-          if (command.startsWith("peak")) return { peakEnabled: command === "peak" ? !current.peakEnabled : command === "peak on" };
-          if (command === "compact" || command === "full" || command === "led") return { enabled: true, compact: command === "compact", ledOnly: command === "led" };
-          const order: ToksVisual[] = ["dot", "squares", "chase"];
-          const visual = command === "cycle" ? order[(order.indexOf(current.visual) + 1) % order.length]! : command as ToksVisual;
-          return { enabled: true, compact: false, ledOnly: true, visual };
+          const [, choice] = command.split(" ");
+          if (choice === "off") return { compact: true };
+          // Keep the existing saved identifiers so older settings still load.
+          const order = ["dot", "squares", "chase"] as const;
+          const visual = choice === "cycle"
+            ? (current.compact ? "dot" : order[(order.indexOf(current.visual) + 1) % order.length]!)
+            : choice === "single" ? "dot"
+            : choice === "multi" ? "squares"
+            : choice === "chase" ? "chase" : "dot";
+          return { compact: false, visual };
         });
         render(ctx);
         if (ctx.hasUI) ctx.ui.notify(`pi-tokometer: ${command || (preferences.enabled ? "on" : "off")}`, "info");
@@ -77,6 +91,7 @@ export default function piTokometer(pi: ExtensionAPI) {
     if (event.message.role !== "assistant" || ctx.mode !== "tui") return;
     await sync(ctx);
     tracker.start(event.message); streaming = true; completedUntil = 0; completed = undefined;
+    lastReadoutAt = undefined;
     render(ctx);
   });
   pi.on("message_update", (event, ctx) => {

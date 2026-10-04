@@ -1,32 +1,58 @@
 # pi-tokometer
 
-Independent Git/npm project, extracted from pi-tally. Work from this directory; never stage it in the parent workspace.
+Standalone Pi extension showing estimated model output speed in the footer.
+Local and TUI-only: no network calls, telemetry, saved response text, or runtime
+dependencies.
 
-## Scope
+## Current behavior
 
-- Local, TUI-only live assistant tok/s meter. No telemetry, network calls, history scanner, prompt counting, or runtime dependencies.
-- `/tokometer` owns enablement, layouts, visuals, motion and peak preferences.
-- `extensions/tokometer/index.ts`: event wiring, commands, timer lifecycle.
-- `speedometer.ts`: bounded character/timing estimates and completed usage-based average. Retain no text.
-- `ui.ts`: stateless tier/color/visual rendering.
-- `preferences.ts`: agent-directory settings and locked atomic preference transactions.
-- `save-queue.ts`: local serialization and bounded cross-process lock; never steal locks.
+- Readout: `42/68↑ t/s` means live/peak. Both numbers are always visible while enabled.
+- Numbers refresh every 500ms; visuals animate every 25ms.
+- Commands: `/tokometer`, `on`, `off`, and `visual single|multi|chase|cycle|off`.
+- Single blinks; multi fills; chase moves a highlight. Default: single.
+- Five default levels: soft red, peach, yellow, green, teal. Red means slow.
+- Settings: `~/.pi/agent/pi-tokometer.json`, respecting `PI_CODING_AGENT_DIR`.
+  Custom `levels` pair minimum speeds with hex colors.
+- Live returns to zero on completion. Keep the last peak until the next response
+  has a numeric reading; session start/reload resets it to zero.
+- Completed visuals hold for three seconds. No idle timer.
 
-No timers in the extension factory. Animate only during a TUI response/completion hold; no disk IO on ticks. Clear timers/status on shutdown/reload/session start. Sync settings at session/message boundaries and read fresh settings inside every transaction. Corrupt/unsupported settings must not be overwritten.
+## Files
 
-Settings: `~/.pi/agent/pi-tokometer.json`, respecting `PI_CODING_AGENT_DIR`. Do not read/write Tally's store. Migration starts fresh; document this rather than silently importing or mutating another extension's data.
+Under `extensions/tokometer/`:
 
-## Validation
+- `index.ts` — events, commands, timers, and readout refresh.
+- `speedometer.ts` — rolling character estimates, peak, and completed averages.
+- `ui.ts` — stateless visuals, formatting, and colors.
+- `preferences.ts` — settings defaults, loading, and saving.
+- `save-queue.ts` — serialize writes and lock the settings file. Never steal locks.
+
+## Rules
+
+- Work in this repository. Preserve unrelated work.
+- Don't start timers when the extension loads. No disk IO on animation ticks.
+- Clear timers and session state on shutdown, reload, and session start.
+- Refresh settings at session/message boundaries and before each command change.
+- Never overwrite invalid JSON or unsupported settings versions.
+- Before changing Pi API use, read the installed `docs/extensions.md` and
+  `docs/tui.md` fully, plus relevant examples.
+- Keep README user-facing, with current commands and visual examples.
+  Note meaningful changes in CHANGE.md.
+- No npm packaging or publishing. Don't change local Pi settings, create tags,
+  or make releases without permission.
+
+## Testing
+
+Use fake events and temporary settings. Ask before live-provider tests.
+Use existing local tools; no dependency installation is needed for routine checks:
 
 ```bash
-npm ci
-npm run check
-npm test
-npm run pack:dry
+./node_modules/.bin/tsc --noEmit
+./node_modules/.bin/tsx --test test/*.test.ts
+git diff --check
 ```
 
-Smoke test: `pi -e ./extensions/tokometer/index.ts`. Check every command, streaming/stalls/peak hold, session changes, narrow terminals, light/dark themes, and loaded-window settings sync. Live provider tests require authorization. Tests should use synthetic events and temporary settings only.
-
-Read installed Pi `docs/extensions.md`, `docs/packages.md`, and `docs/tui.md` completely and relevant examples before API changes.
-
-Keep README user-facing; update CHANGE.md for material changes. No commits to unrelated repositories, local Pi-settings changes, npm publication, tags, or releases without authorization.
+Manual check: `pi -e ./extensions/tokometer/index.ts`.
+Check commands, each visual, numeric refresh, streaming pauses, completion hold,
+persistent peak, session changes, narrow terminals, light/dark themes, and
+settings sync across open Pi windows.

@@ -1,4 +1,4 @@
-import { resolveToksVisual, type ToksVisual } from "./preferences.ts";
+import { DEFAULT_LEVELS, resolveToksVisual, type ToksLevel, type ToksVisual } from "./preferences.ts";
 
 type SemanticTheme = { fg?: (color: "dim", value: string) => string };
 
@@ -28,44 +28,41 @@ export interface FooterSpeedometer {
 }
 
 function tps(value: number | undefined): string {
-  return value !== undefined && Number.isFinite(value) && value >= 0 ? `${value.toFixed(value >= 10 ? 0 : 1)} tok/s` : "—";
+  return value !== undefined && Number.isFinite(value) && value >= 0 ? `${value === 0 ? "0" : value.toFixed(value >= 10 ? 0 : 1)}` : "—";
 }
 
 function peakTps(value: number | undefined): string {
-  return value !== undefined && Number.isFinite(value) && value > 0 ? `${value.toFixed(value >= 10 ? 0 : 1)} peak tok/s` : "";
+  return value !== undefined && Number.isFinite(value) && value >= 0 ? `${value === 0 ? "0" : value.toFixed(value >= 10 ? 0 : 1)}↑` : "";
 }
 
-/** Six tiers: 0-<10, 10-<20, 20-<60, 60-<120, 120-<300, 300+. */
-export function speedometerStage(value: number): number {
-  return [10, 20, 60, 120, 300].filter((threshold) => value >= threshold).length;
+/** Highest level whose `min` the speed has reached; a speed below every `min` stays at level 0. */
+export function toksLevelIndex(tps: number, levels: readonly ToksLevel[]): number {
+  let index = 0;
+  for (let i = 0; i < levels.length; i++) if (tps >= levels[i]!.min) index = i;
+  return index;
 }
 
-// Concrete, theme-independent hues. Below 5 tok/s is a deeper red; 5-<10 stays red on the same
-// 1400ms tier; then pink, green, teal, blue, and violet. Foreground-only, reset with SGR 39.
+// Concrete, theme-independent hues. Each level carries its own color; foreground-only, reset with SGR 39.
 type Rgb = readonly [number, number, number];
-const DEEP_RED: Rgb = [192, 57, 43];
-const TIER_RGB: readonly Rgb[] = [
-  [231, 76, 60],   // red
-  [255, 126, 182], // light red / pink
-  [46, 204, 113],  // green
-  [26, 188, 156],  // teal
-  [52, 152, 219],  // blue
-  [155, 89, 182],  // violet
-];
-const BLINK_PERIODS = [1400, 1200, 1000, 800, 600, 400] as const;
-const CHASE_STEPS = [700, 600, 500, 400, 300, 200] as const;
+function hexToRgb(hex: string | undefined): Rgb | undefined {
+  const match = typeof hex === "string" ? /^#([0-9a-f]{6})$/i.exec(hex.trim()) : undefined;
+  if (!match) return undefined;
+  const value = match[1]!;
+  return [parseInt(value.slice(0, 2), 16), parseInt(value.slice(2, 4), 16), parseInt(value.slice(4, 6), 16)];
+}
+const BLINK_PERIODS = [1400, 1200, 1000, 800, 600] as const;
+const SINGLE_BLINK_PERIODS = [400, 400, 400, 300, 150] as const;
+const CHASE_STEPS = [600, 500, 400, 300, 200] as const;
 const CHASE_BASE_FACTOR = 0.55;
 const BRIGHT_MS = 200;
-const SQUARE_COUNT = 6;
 const ACTIVE_SQUARE = "■";
 const INACTIVE_SQUARE = "□";
 const XTERM_CUBE = [0, 95, 135, 175, 215, 255] as const;
 const XTERM_GRAY = Array.from({ length: 24 }, (_, step) => 8 + step * 10);
 const ANSI256_CACHE = new Map<number, number>();
 
-function tierRgb(tps: number, stageIndex: number): Rgb {
-  if (stageIndex === 0) return tps < 5 ? DEEP_RED : TIER_RGB[0]!;
-  return TIER_RGB[stageIndex] ?? TIER_RGB[TIER_RGB.length - 1]!;
+function levelRgb(levels: readonly ToksLevel[], index: number): Rgb {
+  return hexToRgb(levels[index]?.color) ?? hexToRgb(DEFAULT_LEVELS[Math.min(index, DEFAULT_LEVELS.length - 1)]!.color)!;
 }
 
 /** Nearest real xterm-256 index for a concrete sRGB color (16-255). */
@@ -119,29 +116,31 @@ function colorFg(theme: ThemeLike | undefined, rgb: Rgb, value: string): string 
 interface VisualState {
   active: boolean;
   bright: boolean;
-  stageIndex: number;
+  levelIndex: number;
 }
 
-/** Shared activity/phase rules for both visuals: idle and stalls are inactive, never a stale glow. */
-function visualState(speedometer: FooterSpeedometer, steady: boolean | undefined, now: number): VisualState {
-  const stageIndex = speedometerStage(speedometer.tps);
+/** Shared activity/phase rules for all visuals: idle and stalls are inactive, never a stale glow. */
+function visualState(speedometer: FooterSpeedometer, steady: boolean | undefined, now: number, levels: readonly ToksLevel[], visual: ToksVisual): VisualState {
+  const levelIndex = toksLevelIndex(speedometer.tps, levels);
   const active = speedometer.tps > 0 && (!speedometer.live || speedometer.lastActivityAt === undefined || now - speedometer.lastActivityAt < 600);
-  const period = BLINK_PERIODS[stageIndex] ?? BLINK_PERIODS[BLINK_PERIODS.length - 1]!;
-  const bright = active && (steady || !speedometer.live || now % period < BRIGHT_MS);
-  return { active, bright, stageIndex };
+  const periods = visual === "dot" ? SINGLE_BLINK_PERIODS : BLINK_PERIODS;
+  const period = periods[Math.min(levelIndex, periods.length - 1)]!;
+  const brightMs = visual === "dot" ? Math.min(BRIGHT_MS, period / 2) : BRIGHT_MS;
+  const bright = active && (steady || !speedometer.live || now % period < brightMs);
+  return { active, bright, levelIndex };
 }
 
-function dotText(speedometer: FooterSpeedometer, theme: ThemeLike | undefined, state: VisualState): string {
-  return state.bright ? colorFg(theme, tierRgb(speedometer.tps, state.stageIndex), "●") : fg(theme, "dim", "●");
+function dotText(speedometer: FooterSpeedometer, theme: ThemeLike | undefined, state: VisualState, levels: readonly ToksLevel[]): string {
+  return state.bright ? colorFg(theme, levelRgb(levels, state.levelIndex), "■") : fg(theme, "dim", "■");
 }
 
-/** Six stable positions; all active squares share the current tier color and blink together. */
-function squaresText(speedometer: FooterSpeedometer, theme: ThemeLike | undefined, state: VisualState): string {
-  const activeCount = state.active ? state.stageIndex + 1 : 0;
+/** One stable position per level; all lit squares share the current level color and blink together. */
+function squaresText(speedometer: FooterSpeedometer, theme: ThemeLike | undefined, state: VisualState, levels: readonly ToksLevel[]): string {
+  const activeCount = state.active ? state.levelIndex + 1 : 0;
   let out = "";
-  for (let i = 0; i < SQUARE_COUNT; i++) {
+  for (let i = 0; i < levels.length; i++) {
     if (i < activeCount) {
-      out += state.bright ? colorFg(theme, tierRgb(speedometer.tps, state.stageIndex), ACTIVE_SQUARE) : fg(theme, "dim", ACTIVE_SQUARE);
+      out += state.bright ? colorFg(theme, levelRgb(levels, state.levelIndex), ACTIVE_SQUARE) : fg(theme, "dim", ACTIVE_SQUARE);
     } else {
       out += fg(theme, "dim", INACTIVE_SQUARE);
     }
@@ -153,44 +152,28 @@ function dimRgb(rgb: Rgb, factor: number): Rgb {
   return [Math.round(rgb[0] * factor), Math.round(rgb[1] * factor), Math.round(rgb[2] * factor)];
 }
 
-function inactiveSquares(theme: ThemeLike | undefined): string {
-  let out = "";
-  for (let i = 0; i < SQUARE_COUNT; i++) out += fg(theme, "dim", INACTIVE_SQUARE);
-  return out;
-}
-
-/**
- * Chase: a brighter highlight moves left-to-right within the lit positions while the other lit squares keep
- * a subtler tier hue. Motion speeds up by tier; a single lit square pulses on the squares blink period, and
- * the completed meter holds a static highlight. Steady mode colors every lit square without a highlight.
- */
-function chaseText(speedometer: FooterSpeedometer, theme: ThemeLike | undefined, state: VisualState, steady: boolean | undefined, now: number): string {
-  const activeCount = state.active ? state.stageIndex + 1 : 0;
-  if (activeCount === 0) return inactiveSquares(theme);
-  const brightRgb = tierRgb(speedometer.tps, state.stageIndex);
-  if (steady) {
-    let out = "";
-    for (let i = 0; i < SQUARE_COUNT; i++) out += i < activeCount ? colorFg(theme, brightRgb, ACTIVE_SQUARE) : fg(theme, "dim", INACTIVE_SQUARE);
-    return out;
-  }
+/** A brighter highlight moves through the lit squares, faster at higher speed levels. */
+function chaseText(speedometer: FooterSpeedometer, theme: ThemeLike | undefined, state: VisualState, steady: boolean | undefined, now: number, levels: readonly ToksLevel[]): string {
+  const activeCount = state.active ? state.levelIndex + 1 : 0;
+  const brightRgb = levelRgb(levels, state.levelIndex);
   const baseRgb = dimRgb(brightRgb, CHASE_BASE_FACTOR);
-  const step = CHASE_STEPS[state.stageIndex] ?? CHASE_STEPS[CHASE_STEPS.length - 1]!;
+  const step = CHASE_STEPS[Math.min(state.levelIndex, CHASE_STEPS.length - 1)]!;
   let highlight: number;
   if (activeCount === 1) highlight = state.bright ? 0 : -1;
-  else if (!speedometer.live) highlight = 0; // completion hold: no moving highlight
+  else if (!speedometer.live) highlight = 0;
   else highlight = Math.floor(now / step) % activeCount;
   let out = "";
-  for (let i = 0; i < SQUARE_COUNT; i++) {
+  for (let i = 0; i < levels.length; i++) {
     if (i >= activeCount) out += fg(theme, "dim", INACTIVE_SQUARE);
-    else out += i === highlight ? colorFg(theme, brightRgb, ACTIVE_SQUARE) : colorFg(theme, baseRgb, ACTIVE_SQUARE);
+    else out += colorFg(theme, steady || i === highlight ? brightRgb : baseRgb, ACTIVE_SQUARE);
   }
   return out;
 }
 
-function visualText(speedometer: FooterSpeedometer, theme: ThemeLike | undefined, state: VisualState, visual: ToksVisual, steady: boolean | undefined, now: number): string {
-  if (visual === "squares") return squaresText(speedometer, theme, state);
-  if (visual === "chase") return chaseText(speedometer, theme, state, steady, now);
-  return dotText(speedometer, theme, state);
+function visualText(speedometer: FooterSpeedometer, theme: ThemeLike | undefined, state: VisualState, visual: ToksVisual, steady: boolean | undefined, now: number, levels: readonly ToksLevel[]): string {
+  if (visual === "squares") return squaresText(speedometer, theme, state, levels);
+  if (visual === "chase") return chaseText(speedometer, theme, state, steady, now, levels);
+  return dotText(speedometer, theme, state, levels);
 }
 
 function fg(theme: ThemeLike | undefined, color: "dim", value: string): string {
@@ -198,19 +181,23 @@ function fg(theme: ThemeLike | undefined, color: "dim", value: string): string {
 }
 
 export interface SpeedometerOptions {
-  /** Visual meter style; missing values fall back to the dot. */
+  /** Saved visual identifier; missing values use a single square. */
   visual?: ToksVisual;
+  /** Live numeric rate can be zero while the visual holds its completed reading. */
+  currentTps?: number | undefined;
+  /** Speed bands with colors; missing values use the built-in defaults. */
+  levels?: readonly ToksLevel[] | undefined;
 }
 
 export function speedometerText(speedometer: FooterSpeedometer | undefined, theme?: ThemeLike, compact?: boolean, ledOnly?: boolean | undefined, steady?: boolean, now = Date.now(), peakEnabled = true, options: SpeedometerOptions = {}): string {
   if (!speedometer || !Number.isFinite(speedometer.tps) || speedometer.tps < 0) return "";
-  if (compact === true) return fg(theme, "dim", tps(speedometer.tps));
-  // Layout is tri-state: LED dot only by default; `ledOnly === false` opts into full (dot + number).
+  const levels = options.levels ?? DEFAULT_LEVELS;
   const visual = resolveToksVisual(options.visual);
-  const meterText = visualText(speedometer, theme, visualState(speedometer, steady, now), visual, steady, now);
+  const meterText = compact ? "" : visualText(speedometer, theme, visualState(speedometer, steady, now, levels, visual), visual, steady, now, levels);
   const peak = peakEnabled ? peakTps(speedometer.peak) : "";
-  const peakText = peak ? fg(theme, "dim", peak) : "";
-  if (ledOnly !== false) return peakText ? `${meterText} ${peakText}` : meterText;
-  const current = fg(theme, "dim", tps(speedometer.tps));
-  return peakText ? `${meterText} ${current} · ${peakText}` : `${meterText} ${current}`;
+  const numbersEnabled = ledOnly === false || (compact === true && ledOnly === undefined);
+  const current = numbersEnabled ? tps(options.currentTps ?? speedometer.tps) : "";
+  const values = [current, peak].filter(Boolean).join("/");
+  const readings = values ? fg(theme, "dim", `${values} t/s`) : "";
+  return [meterText, readings].filter(Boolean).join(" ");
 }

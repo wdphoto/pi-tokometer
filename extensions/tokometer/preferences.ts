@@ -6,19 +6,42 @@ import { enqueueStoreSave, withStoreLock } from "./save-queue.ts";
 
 export type ToksVisual = "dot" | "squares" | "chase";
 export function resolveToksVisual(value: unknown): ToksVisual {
+  if (value === "meter" || value === "flash") return "chase";
   return value === "squares" || value === "chase" ? value : "dot";
+}
+/** One speed band: `min` tok/s and up, shown in `color` (#rrggbb). */
+export interface ToksLevel {
+  min: number;
+  color: string;
+}
+export const DEFAULT_LEVELS: readonly ToksLevel[] = [
+  { min: 0, color: "#f38ba8" }, // red: slow
+  { min: 10, color: "#fab387" }, // peach
+  { min: 25, color: "#f9e2af" }, // yellow
+  { min: 60, color: "#a6e3a1" }, // green
+  { min: 120, color: "#94e2d5" }, // teal: fast
+];
+/** Keep well-formed entries in ascending order; anything unusable falls back to the defaults. */
+export function resolveToksLevels(value: unknown): ToksLevel[] {
+  const levels = Array.isArray(value)
+    ? value.flatMap((entry) => {
+      const min = (entry as ToksLevel | undefined)?.min;
+      const color = (entry as ToksLevel | undefined)?.color;
+      return typeof min === "number" && Number.isFinite(min) && min >= 0
+        && typeof color === "string" && /^#[0-9a-f]{6}$/i.test(color) ? [{ min, color }] : [];
+    }).sort((a, b) => a.min - b.min)
+    : [];
+  return levels.length > 0 ? levels : [...DEFAULT_LEVELS];
 }
 export interface Preferences {
   version: 1;
   enabled: boolean;
   compact: boolean;
-  ledOnly: boolean;
-  steady: boolean;
-  peakEnabled: boolean;
   visual: ToksVisual;
+  levels: ToksLevel[];
 }
 export function defaultPreferences(): Preferences {
-  return { version: 1, enabled: true, compact: false, ledOnly: true, steady: false, peakEnabled: true, visual: "dot" };
+  return { version: 1, enabled: true, compact: false, visual: "dot", levels: [...DEFAULT_LEVELS] };
 }
 export function resolvePreferencesPath(): string {
   const dir = process.env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent");
@@ -36,8 +59,8 @@ export async function loadPreferences(path: string): Promise<Preferences> {
     if (!raw || typeof raw !== "object" || Array.isArray(raw) || raw.version !== 1) throw new Error("Unsupported settings");
     return {
       version: 1, enabled: raw.enabled !== false, compact: raw.compact === true,
-      ledOnly: raw.ledOnly !== false, steady: raw.steady === true,
-      peakEnabled: raw.peakEnabled !== false, visual: resolveToksVisual(raw.visual),
+      visual: resolveToksVisual(raw.visual),
+      levels: resolveToksLevels(raw.levels),
     };
   } catch (error) {
     throw new Error("Cannot load pi-tokometer settings; preserve/repair the file before changing preferences.", { cause: error });
