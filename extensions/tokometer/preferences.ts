@@ -4,10 +4,11 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { enqueueStoreSave, withStoreLock } from "./save-queue.ts";
 
-export type ToksVisual = "dot" | "squares" | "chase";
+export type ToksVisual = "dot" | "squares" | "chase" | "tach";
 export function resolveToksVisual(value: unknown): ToksVisual {
   if (value === "meter" || value === "flash") return "chase";
-  return value === "squares" || value === "chase" ? value : "dot";
+  if (value === "rev") return "tach";
+  return value === "squares" || value === "chase" || value === "tach" ? value : "dot";
 }
 /** One speed band: `min` tok/s and up, shown in `color` (#rrggbb). */
 export interface ToksLevel {

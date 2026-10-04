@@ -1,4 +1,5 @@
 import { DEFAULT_LEVELS, resolveToksVisual, type ToksLevel, type ToksVisual } from "./preferences.ts";
+import { revFill, type RevReading } from "./rev.ts";
 
 type SemanticTheme = { fg?: (color: "dim", value: string) => string };
 
@@ -193,6 +194,8 @@ function fg(theme: ThemeLike | undefined, color: "dim", value: string): string {
 export interface SpeedometerOptions {
   /** Saved visual identifier; missing values use a single square. */
   visual?: ToksVisual;
+  /** Sampled rev speed and hysteretic gear; absent values use the exact current band. */
+  rev?: RevReading;
   /** Live numeric rate can be zero while the visual holds its completed reading. */
   currentTps?: number | undefined;
   /** Speed bands with colors; missing values use the built-in defaults. */
@@ -203,7 +206,14 @@ export function speedometerText(speedometer: FooterSpeedometer | undefined, them
   if (!speedometer || !Number.isFinite(speedometer.tps) || speedometer.tps < 0) return "";
   const levels = options.levels ?? DEFAULT_LEVELS;
   const visual = resolveToksVisual(options.visual);
-  const meterText = compact ? "" : visualText(speedometer, theme, visualState(speedometer, steady, now, levels, visual), visual, steady, now, levels);
+  const state = visualState(speedometer, steady, now, levels, visual);
+  const rev = options.rev ?? { tps: speedometer.tps, gear: state.levelIndex };
+  const fill = visual === "tach" && state.active ? revFill(rev, levels) : 0;
+  const meterText = compact ? "" : visual === "tach"
+    ? Array.from({ length: 5 }, (_, i) => i < fill
+      ? colorFg(theme, levelRgb(levels, rev.gear), ACTIVE_SQUARE)
+      : fg(theme, "dim", INACTIVE_SQUARE)).join("")
+    : visualText(speedometer, theme, state, visual, steady, now, levels);
   const peak = peakEnabled ? peakTps(speedometer.peak) : "";
   const numbersEnabled = ledOnly === false || (compact === true && ledOnly === undefined);
   const current = numbersEnabled ? tps(options.currentTps ?? speedometer.tps) : "";

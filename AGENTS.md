@@ -8,10 +8,13 @@ dependencies.
 
 - Readout: `  42/  68↑ t/s` means live/peak. Both numbers are always visible while enabled.
 - Each number occupies four right-aligned columns. Round low speeds to whole numbers;
-  use compact units from 1,000 (`1.2k`, `10k`, `100k`, then M/B/T); overflow is `999+`.
+  show thousands compactly (`1.2k`, `9.9k`). Documentation need not cover speeds above 9,999.
 - Numbers refresh every 500ms; visuals animate every 25ms.
-- Commands: `/tokometer`, `on`, `off`, and `visual single|multi|chase|cycle|off`.
-- Single blinks; multi fills; chase moves a highlight. Default: single.
+- Commands: `/tokometer`, `on`, `off`, and `visual single|multi|chase|tach|cycle|off`.
+- Single blinks; multi fills; chase moves a highlight; tach builds within color-coded gears. Default: single.
+- Tach: fixed five blocks; saved levels define gear thresholds/colors. `rev` is a compatibility alias. Refresh every
+  500ms; direct downshifts with 5% hysteresis, no blinking. Top span is the max of
+  the gear minimum, previous distinct gap, and 10 t/s. Pauses retain the gear.
 - Five default levels: soft red, peach, yellow, green, teal. Red means slow.
 - Settings: `~/.pi/agent/pi-tokometer.json`, respecting `PI_CODING_AGENT_DIR`.
   Custom `levels` pair minimum speeds with hex colors.
@@ -26,6 +29,7 @@ Under `extensions/tokometer/`:
 - `index.ts` — events, commands, timers, and readout refresh.
 - `speedometer.ts` — rolling character estimates, peak, and completed averages.
 - `ui.ts` — stateless visuals, formatting, and colors.
+- `rev.ts` — session-local gear hysteresis and within-gear fill calculation.
 - `preferences.ts` — settings defaults, loading, and saving.
 - `save-queue.ts` — serialize writes and lock the settings file. Never steal locks.
 

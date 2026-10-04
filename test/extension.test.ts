@@ -42,12 +42,14 @@ test("visual commands always preserve live and peak readings", async (t) => {
   const f = fixture();
   await f.emit("session_start");
   assert.equal(f.status, "■    0/   0↑ t/s");
-  for (const [choice, saved] of [["multi", "squares"], ["chase", "chase"], ["single", "dot"]]) {
+  for (const [choice, saved] of [["multi", "squares"], ["chase", "chase"], ["tach", "tach"], ["single", "dot"]]) {
     await f.command("visual cycle", f.ctx);
     assert.equal((await loadPreferences(path)).visual, saved);
     await f.command(`visual ${choice}`, f.ctx);
     assert.match(f.status!, /   0\/   0↑ t\/s$/);
   }
+  await f.command("visual rev", f.ctx);
+  assert.equal((await loadPreferences(path)).visual, "tach");
   await f.command("  visual   off  ", f.ctx);
   assert.equal(f.status, "   0/   0↑ t/s");
   await f.command("visual cycle", f.ctx);
@@ -94,10 +96,10 @@ test("bad settings are preserved; older visual choices load and retired number f
     await assert.rejects(updatePreferences(path, () => ({ enabled: false })));
     assert.equal(await readFile(path, "utf8"), content);
   }
-  for (const visual of ["dot", "squares", "flash", "chase", "meter", "bogus"]) {
+  for (const visual of ["dot", "squares", "flash", "chase", "tach", "rev", "meter", "bogus"]) {
     await writeFile(path, JSON.stringify({ version: 1, visual, steady: true, ledOnly: true, peakEnabled: false }));
     const prefs = await loadPreferences(path);
-    assert.equal(prefs.visual, visual === "bogus" ? "dot" : visual === "meter" || visual === "flash" ? "chase" : visual);
+    assert.equal(prefs.visual, visual === "bogus" ? "dot" : visual === "meter" || visual === "flash" ? "chase" : visual === "rev" ? "tach" : visual);
     assert.equal("peakEnabled" in prefs, false);
     const f = fixture();
     await f.emit("session_start");
@@ -201,6 +203,42 @@ test("numbers refresh every 500ms while visuals keep animating; completion zeros
   now = 1025;
   await f.emit("message_end", { message: { role: "assistant", timestamp: 0, usage: { output: 20 } } });
   assert.equal(numbers(), "dim:   0/ 200↑ t/s");
+  await f.emit("session_shutdown");
+});
+
+test("tach samples every 500ms, dims on stalls, holds completion and clears on session start", async (t) => {
+  await sandbox(t);
+  let now = 0;
+  let tick!: () => void;
+  t.mock.method(Date, "now", () => now);
+  t.mock.method(globalThis, "setInterval", (callback: () => void) => { tick = callback; return { unref() {} } as any; });
+  t.mock.method(globalThis, "clearInterval", () => {});
+  const f = fixture();
+  await f.emit("session_start");
+  await f.command("visual tach", f.ctx);
+  assert.equal(f.status, "□□□□□    0/   0↑ t/s");
+  await f.emit("message_start", { message: { role: "assistant", timestamp: 0 } });
+  now = 100;
+  await f.emit("message_update", { message: { role: "assistant" }, assistantMessageEvent: { delta: "x".repeat(72) } });
+  assert.equal(f.status, "□□□□□    0/   0↑ t/s");
+  now = 500; tick();
+  assert.equal(f.status, "■■■□□   18/  18↑ t/s");
+  now = 550;
+  await f.emit("message_update", { message: { role: "assistant" }, assistantMessageEvent: { delta: "x".repeat(32) } });
+  assert.equal(f.status, "■■■□□   18/  18↑ t/s");
+  now = 1000; tick();
+  assert.equal(f.status, "■□□□□   26/  26↑ t/s");
+  now = 1150; tick();
+  assert.match(f.status!, /^□□□□□/);
+  now = 1200;
+  await f.emit("message_end", { message: { role: "assistant", timestamp: 0, usage: { output: 24 } } });
+  assert.equal(f.status, "■■■■□    0/  26↑ t/s");
+  now = 4199; tick();
+  assert.match(f.status!, /^■■■■□/);
+  now = 4200; tick();
+  assert.equal(f.status, "□□□□□    0/  26↑ t/s");
+  await f.emit("session_start");
+  assert.equal(f.status, "□□□□□    0/   0↑ t/s");
   await f.emit("session_shutdown");
 });
 

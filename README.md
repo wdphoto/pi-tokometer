@@ -11,8 +11,7 @@ Current version: **0.0.2**. See [CHANGE.md](CHANGE.md) for changes.
 The first number is live speed; the number with `↑` is the response peak.
 Both refresh twice per second, independently of the animation. Each number is
 right-aligned in four columns so the layout never shifts. Speeds below 1,000
-round to whole numbers; higher speeds use compact units (`1.2k`, `10k`, `100k`,
-then `M`, `B`, and `T`). Values beyond the compact range show `999+`.
+round to whole numbers; thousands use compact notation such as `1.2k` or `9.9k`.
 
 When a response ends, live speed immediately returns to zero. The last peak
 stays visible through idle and the next response’s initial wait, until that
@@ -20,6 +19,16 @@ response produces a new numeric reading. A new session or reload starts at
 `   0/   0↑ t/s`.
 
 ## Load
+
+Install from GitHub to follow the default branch:
+
+```bash
+pi install git:github.com/wdphoto/pi-tokometer
+```
+
+Update Git-installed packages with `pi update --extensions`, then restart Pi or
+run `/reload`. GitHub Releases are not required for these updates. Installing a
+specific tag or commit pins that version; updates do not move the configured ref.
 
 From a local checkout:
 
@@ -44,7 +53,8 @@ This registers the local directory without copying it. Restart Pi or run
 /tokometer visual single       one blinking square
 /tokometer visual multi        squares fill with speed
 /tokometer visual chase        moving highlight through lit squares
-/tokometer visual cycle        single → multi → chase → single
+/tokometer visual tach         tachometer-style rev bar with color-coded gears
+/tokometer visual cycle        single → multi → chase → tach → single
 /tokometer visual off          numbers only
 ```
 
@@ -95,6 +105,37 @@ mark the highlight for this example; they are not part of the footer:
 /tokometer visual chase
 ```
 
+**Tach** — a tachometer-style bar: five blocks show revs within the current gear. Color identifies the
+gear, using the same saved `levels` as every other visual:
+
+```text
+■■■□□   18/ 120↑ t/s   peach: building revs
+■■■■■   24/ 120↑ t/s   peach: near redline
+■□□□□   26/ 120↑ t/s   yellow: shifted up
+■■■□□   45/ 120↑ t/s   yellow: building again
+■□□□□   62/ 120↑ t/s   green: shifted up
+```
+
+The labels above explain the colors; they are not part of the footer.
+
+```text
+/tokometer visual tach
+```
+
+`visual rev` remains an alias; existing saved `rev` settings load as `tach`.
+
+Each level's `min` starts a gear; its `color` colors all lit blocks. The fill
+rises toward the next minimum, then resets on an upshift. Gear and fill refresh
+every 500ms without blinking. Downshifts jump directly to the appropriate gear,
+with a 5% band-width margin below the current gear's minimum to prevent jitter.
+A pause dims the bar without downshifting; completion holds the final average's
+exact gear/fill for three seconds.
+
+Tach always uses five blocks, even with custom levels. The top gear's span is the
+largest of its minimum, its gap from the previous distinct minimum, or 10 t/s.
+With defaults, the top gear fills from 120 to 240 t/s, then stays full.
+This is an RPM-style visual metaphor; the measurement remains tokens per second.
+
 **Numbers only** — no visual, same live/peak reading:
 
 ```text
@@ -105,7 +146,7 @@ mark the highlight for this example; they are not part of the footer:
 /tokometer visual off
 ```
 
-Try `/tokometer visual cycle` to compare all three visuals. Use `/tokometer off`
+Try `/tokometer visual cycle` to compare all four visuals. Use `/tokometer off`
 to hide the entire readout and `/tokometer on` to restore it.
 
 ## Visuals and colors
@@ -162,7 +203,7 @@ This is a valid settings file with the defaults:
 }
 ```
 
-Saved visual names are `dot` (single), `squares` (multi), and `chase`.
+Saved visual names are `dot` (single), `squares` (multi), `chase`, and `tach`.
 `compact: true` hides the visual, not the numbers.
 
 Each level pairs a minimum speed with a `#rrggbb` color. Levels sort by `min`;
