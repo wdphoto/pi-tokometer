@@ -1,5 +1,5 @@
 import { DEFAULT_LEVELS, resolveToksVisual, type ToksLevel, type ToksVisual } from "./preferences.ts";
-import { revFill, type RevReading } from "./rev.ts";
+import { tachFill, type TachReading } from "./tach.ts";
 
 type SemanticTheme = { fg?: (color: "dim", value: string) => string };
 
@@ -28,18 +28,19 @@ export interface FooterSpeedometer {
   peak?: number;
 }
 
-/** Four columns, including rounding transitions into compact units. */
+// Pi's footer sanitizer collapses runs of regular spaces and trims status edges,
+// so numeric padding must use non-breaking spaces to keep a fixed width.
+const PAD = "\u00a0";
+const ZWSP = "\u200b";
+
+/** Four columns up to `1.0k`; thousands stay compact and wider values clamp to `999k`. */
 function tps(value: number | undefined): string {
-  if (value === undefined || !Number.isFinite(value) || value < 0) return "   —";
+  if (value === undefined || !Number.isFinite(value) || value < 0) return `${PAD.repeat(3)}—`;
   const rounded = Math.round(value);
-  if (rounded < 1000) return String(rounded).padStart(4);
-  const units = ["k", "M", "B", "T"];
-  for (let i = 0; i < units.length; i++) {
-    const scaled = value / 1000 ** (i + 1);
-    const compact = scaled.toFixed(scaled < 9.95 ? 1 : 0);
-    if (Number(compact) < 1000) return `${compact}${units[i]}`.padStart(4);
-  }
-  return "999+";
+  if (rounded < 1000) return String(rounded).padStart(4, PAD);
+  if (value >= 999_500) return "999k";
+  const compact = value < 9_950 ? (value / 1000).toFixed(1) : String(Math.round(value / 1000));
+  return `${compact}k`.padStart(4, PAD);
 }
 
 function peakTps(value: number | undefined): string {
@@ -194,8 +195,8 @@ function fg(theme: ThemeLike | undefined, color: "dim", value: string): string {
 export interface SpeedometerOptions {
   /** Saved visual identifier; missing values use a single square. */
   visual?: ToksVisual;
-  /** Sampled rev speed and hysteretic gear; absent values use the exact current band. */
-  rev?: RevReading;
+  /** Sampled tach speed and hysteretic gear; absent values use the exact current band. */
+  tach?: TachReading;
   /** Live numeric rate can be zero while the visual holds its completed reading. */
   currentTps?: number | undefined;
   /** Speed bands with colors; missing values use the built-in defaults. */
@@ -207,11 +208,11 @@ export function speedometerText(speedometer: FooterSpeedometer | undefined, them
   const levels = options.levels ?? DEFAULT_LEVELS;
   const visual = resolveToksVisual(options.visual);
   const state = visualState(speedometer, steady, now, levels, visual);
-  const rev = options.rev ?? { tps: speedometer.tps, gear: state.levelIndex };
-  const fill = visual === "tach" && state.active ? revFill(rev, levels) : 0;
+  const tach = options.tach ?? { tps: speedometer.tps, gear: state.levelIndex };
+  const fill = visual === "tach" && state.active ? tachFill(tach, levels) : 0;
   const meterText = compact ? "" : visual === "tach"
     ? Array.from({ length: 5 }, (_, i) => i < fill
-      ? colorFg(theme, levelRgb(levels, rev.gear), ACTIVE_SQUARE)
+      ? colorFg(theme, levelRgb(levels, tach.gear), ACTIVE_SQUARE)
       : fg(theme, "dim", INACTIVE_SQUARE)).join("")
     : visualText(speedometer, theme, state, visual, steady, now, levels);
   const peak = peakEnabled ? peakTps(speedometer.peak) : "";
@@ -219,5 +220,8 @@ export function speedometerText(speedometer: FooterSpeedometer | undefined, them
   const current = numbersEnabled ? tps(options.currentTps ?? speedometer.tps) : "";
   const values = [current, peak].filter(Boolean).join("/");
   const readings = values ? fg(theme, "dim", `${values} t/s`) : "";
-  return [meterText, readings].filter(Boolean).join(" ");
+  if (!readings) return meterText;
+  // Without a visual the status starts with the padded field; the zero-width prefix
+  // keeps Pi's trim from eating that leading padding.
+  return meterText ? `${meterText} ${readings}` : `${ZWSP}${readings}`;
 }

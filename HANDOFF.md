@@ -5,10 +5,10 @@
 The current implementation is ready for further manual use. No feature request
 is pending. Local version is now 0.0.2; changes are listed under 0.0.2 in CHANGE.md.
 The 0.0.2 fixed-width changes were committed and pushed to origin/main (be24673).
-The latest pass adds `visual tach` (`rev` remains an alias), documented under
-Unreleased. The user authorized committing and pushing this feature and updated
-docs to origin/main; check Git history/status for the outcome. No version bump,
-tag, publication, or remote release was requested for this feature.
+The tach feature and docs were committed and pushed to origin/main (4265427),
+documented under Unreleased. The latest cleanup removes the unused `rev`
+command/settings alias; `tach` is the only supported name for this visual.
+No version bump, tag, publication, or remote release was requested.
 The user authorized a commit and push to origin/main after this handoff was
 written. Check Git history/status for the outcome. No tag, release, or publication
 was requested. Preserve any subsequent working-tree changes when resuming.
@@ -18,8 +18,11 @@ was requested. Preserve any subsequent working-tree changes when resuming.
 - Standalone, local, TUI-only Pi extension.
 - Footer: `■   42/  68↑ t/s` — live/peak, always shown while enabled.
 - Each number is four right-aligned columns: whole numbers below 1,000, compact
-  thousands (`1.2k`, `9.9k`). User-facing documentation omits speeds above 9,999;
-  the existing formatter's overflow handling remains unchanged.
+  thousands (`1.2k`, `9.9k`). `k` is the only unit; values at 999,500 t/s and above
+  clamp to `999k`. User-facing documentation omits speeds above 9,999.
+- Padding uses non-breaking spaces, with a zero-width prefix for numbers-only statuses:
+  Pi's footer sanitizer collapses regular-space runs and trims edges, so plain padding
+  would shift the row.
 - Numbers refresh every 500ms. This slows the readout; it does not add averaging
   beyond the existing rolling one-second speed estimate.
 - Visual animation refreshes every 25ms, with no idle timer or tick-time disk IO.
@@ -27,7 +30,7 @@ was requested. Preserve any subsequent working-tree changes when resuming.
 - Visual cycle: single → multi → chase → tach. No audio-style meter or flash option.
 - Tach uses five blocks, saved thresholds/colors as gears, 500ms sampling, direct
   downshifts with 5% hysteresis, and no blinking. Top gear spans the max of its
-  minimum, previous distinct gap, and 10 t/s (120–240 with defaults). Pauses dim
+  minimum, previous distinct gap, and 10 t/s (300–600 with defaults). Pauses dim
   without downshifting; completion holds the exact final average's band/fill.
 - Single blink periods: 400/400/400/300/150ms by level.
 - Multi pulse periods: 1400/1200/1000/800/600ms.
@@ -48,9 +51,9 @@ Five default levels, using fixed Catppuccin Mocha colors:
 | --- | --- | --- |
 | 0 | Red — slow | `#f38ba8` |
 | 10 | Peach | `#fab387` |
-| 25 | Yellow | `#f9e2af` |
-| 60 | Green | `#a6e3a1` |
-| 120 | Teal — fast | `#94e2d5` |
+| 50 | Yellow | `#f9e2af` |
+| 100 | Green | `#a6e3a1` |
+| 300 | Blue — fastest | `#89b4fa` |
 
 Custom `levels` are retained. Defaults do not replace saved custom colors.
 Valid entries sort by minimum speed; invalid entries are discarded, with defaults
@@ -67,9 +70,9 @@ Retired number-visibility flags are ignored and removed on the next save.
   and visual refresh rates.
 - `extensions/tokometer/preferences.ts` — configurable levels, palette, legacy
   preference handling.
-- `extensions/tokometer/ui.ts` — compact formatting, palette rendering, timing, rev bar.
-- `extensions/tokometer/rev.ts` — gear hysteresis and within-gear fill.
-- `test/rev.test.ts` — rev bands, colors, hysteresis, custom settings, and widths.
+- `extensions/tokometer/ui.ts` — compact formatting, palette rendering, timing, tach bar.
+- `extensions/tokometer/tach.ts` — gear hysteresis and within-gear fill.
+- `test/tach.test.ts` — tach bands, colors, hysteresis, custom settings, and widths.
 - `test/extension.test.ts`, `test/led.test.ts` — current commands, timing, visuals,
   settings compatibility, and persistent readout coverage.
 - `README.md` — current commands, visual previews, settings example, local loading,
@@ -91,8 +94,9 @@ Last full run passed:
 git diff --check
 ```
 
-30 tests passed, including fixed-width formatting, compact-unit rounding boundaries,
-rev fill/colors, gear hysteresis, settings changes, sampling, pauses, and holds. README's settings JSON was parsed and checked for version 1 and
+31 tests passed, including fixed-width formatting, compact-unit rounding boundaries,
+footer-sanitizer padding, tach fill/colors, gear hysteresis, settings changes,
+sampling, pauses, and holds. README's settings JSON was parsed and checked for version 1 and
 its levels array. No automated live-provider tests were run. Manual visual feel,
 narrow-terminal rendering, and light-theme contrast still need hands-on review.
 
@@ -113,7 +117,7 @@ No tags, publication, or release commands were authorized.
 - Start with `AGENTS.md` and this file, then inspect the working-tree diff.
 - Keep single/multi/chase/tach; the user rejected the audio-style visual and changed
   their mind about grouped flashes.
-- Red means slow, not fast. Keep the softer red → peach → yellow → green → teal
+- Red means slow, not fast. Keep the softer red → peach → yellow → green → blue
   defaults, and preserve custom levels.
 - Numbers are always live/peak, not selectable modes. Keep four-column fields:
   `  42/  68↑ t/s`.

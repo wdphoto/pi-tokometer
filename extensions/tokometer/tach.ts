@@ -1,15 +1,15 @@
 import type { ToksLevel } from "./preferences.ts";
 
-export interface RevReading { tps: number; gear: number }
+export interface TachReading { tps: number; gear: number }
 
 /** Session-local gear hysteresis. Rendering remains stateless. */
-export class RevTracker {
-  private reading: RevReading = { tps: 0, gear: 0 };
+export class TachTracker {
+  private reading: TachReading = { tps: 0, gear: 0 };
   private signature = "";
 
   reset() { this.reading = { tps: 0, gear: 0 }; this.signature = ""; }
 
-  update(tps: number, levels: readonly ToksLevel[], live: boolean): RevReading {
+  update(tps: number, levels: readonly ToksLevel[], live: boolean): TachReading {
     const signature = JSON.stringify(levels);
     if (signature !== this.signature) { this.reset(); this.signature = signature; }
     let target = 0;
@@ -30,7 +30,7 @@ export class RevTracker {
 }
 
 /** Top gear spans at least its minimum, the previous gap, or 10 t/s. */
-export function revFill(reading: RevReading, levels: readonly ToksLevel[]): number {
+export function tachFill(reading: TachReading, levels: readonly ToksLevel[]): number {
   if (reading.tps <= 0 || !levels.length) return 0;
   const lower = levels[reading.gear]!.min;
   const previous = levels.slice(0, reading.gear).reverse().find(level => level.min < lower)?.min ?? 0;

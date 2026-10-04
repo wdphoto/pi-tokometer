@@ -81,8 +81,8 @@ These are plain-text previews; the actual squares use the colors below.
 
 ```text
 ■□□□□    5/   8↑ t/s
-■■■□□   42/  68↑ t/s
-■■■■■  150/ 180↑ t/s
+■■□□□   42/  68↑ t/s
+■■■■□  150/ 180↑ t/s
 ```
 
 ```text
@@ -93,11 +93,11 @@ These are plain-text previews; the actual squares use the colors below.
 mark the highlight for this example; they are not part of the footer:
 
 ```text
-■■■□□   42/  68↑ t/s
+■■□□□   42/  68↑ t/s
 ^
-■■■□□   42/  68↑ t/s
+■■□□□   42/  68↑ t/s
  ^
-■■■□□   42/  68↑ t/s
+■■□□□   42/  68↑ t/s
   ^
 ```
 
@@ -109,11 +109,11 @@ mark the highlight for this example; they are not part of the footer:
 gear, using the same saved `levels` as every other visual:
 
 ```text
-■■■□□   18/ 120↑ t/s   peach: building revs
-■■■■■   24/ 120↑ t/s   peach: near redline
-■□□□□   26/ 120↑ t/s   yellow: shifted up
-■■■□□   45/ 120↑ t/s   yellow: building again
-■□□□□   62/ 120↑ t/s   green: shifted up
+■■□□□   18/ 150↑ t/s   peach: building revs
+■■■■■   48/ 150↑ t/s   peach: near redline
+■□□□□   50/ 150↑ t/s   yellow: shifted up
+■■■■□   80/ 150↑ t/s   yellow: building again
+■□□□□  100/ 150↑ t/s   green: shifted up
 ```
 
 The labels above explain the colors; they are not part of the footer.
@@ -121,8 +121,6 @@ The labels above explain the colors; they are not part of the footer.
 ```text
 /tokometer visual tach
 ```
-
-`visual rev` remains an alias; existing saved `rev` settings load as `tach`.
 
 Each level's `min` starts a gear; its `color` colors all lit blocks. The fill
 rises toward the next minimum, then resets on an upshift. Gear and fill refresh
@@ -133,7 +131,7 @@ exact gear/fill for three seconds.
 
 Tach always uses five blocks, even with custom levels. The top gear's span is the
 largest of its minimum, its gap from the previous distinct minimum, or 10 t/s.
-With defaults, the top gear fills from 120 to 240 t/s, then stays full.
+With defaults, the top gear fills from 300 to 600 t/s, then stays full.
 This is an RPM-style visual metaphor; the measurement remains tokens per second.
 
 **Numbers only** — no visual, same live/peak reading:
@@ -153,15 +151,15 @@ to hide the entire readout and `/tokometer on` to restore it.
 
 All visuals use the same speed levels and colors. Defaults use soft Catppuccin
 Mocha colors, independent of your Pi theme: red means slow, then peach, yellow,
-green, and teal as speed improves.
+green, and blue as speed improves.
 
 | t/s | Color | Lit squares in multi/chase |
 | --- | --- | --- |
 | <10 | Red | 1 |
-| 10–<25 | Peach | 2 |
-| 25–<60 | Yellow | 3 |
-| 60–<120 | Green | 4 |
-| 120+ | Teal | 5 |
+| 10–<50 | Peach | 2 |
+| 50–<100 | Yellow | 3 |
+| 100–<300 | Green | 4 |
+| 300+ | Blue | 5 |
 
 The default bar has five equal-width blocks. Each is 20% of the visual width,
 not 20% of a fixed maximum speed.
@@ -196,9 +194,9 @@ This is a valid settings file with the defaults:
   "levels": [
     { "min": 0, "color": "#f38ba8" },
     { "min": 10, "color": "#fab387" },
-    { "min": 25, "color": "#f9e2af" },
-    { "min": 60, "color": "#a6e3a1" },
-    { "min": 120, "color": "#94e2d5" }
+    { "min": 50, "color": "#f9e2af" },
+    { "min": 100, "color": "#a6e3a1" },
+    { "min": 300, "color": "#89b4fa" }
   ]
 }
 ```
@@ -208,7 +206,7 @@ Saved visual names are `dot` (single), `squares` (multi), `chase`, and `tach`.
 
 Each level pairs a minimum speed with a `#rrggbb` color. Levels sort by `min`;
 multi/chase have one position per level. A slow model might use thresholds
-`0, 5, 15, 30, 60`; a very fast one `0, 100, 300, 700, 1000`.
+`0, 5, 15, 30, 60`; a very fast one `0, 100, 200, 300, 500`.
 
 Omit `levels` to use the defaults. Existing custom levels are preserved.
 Invalid entries are discarded; if none remain, defaults are used. A command

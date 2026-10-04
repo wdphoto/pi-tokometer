@@ -2,7 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { defaultPreferences, loadPreferences, resolvePreferencesPath, updatePreferences, type Preferences } from "./preferences.ts";
 import { AssistantSpeedTracker } from "./speedometer.ts";
 import { speedometerText, type FooterSpeedometer } from "./ui.ts";
-import { RevTracker } from "./rev.ts";
+import { TachTracker } from "./tach.ts";
 
 export const STATUS_KEY = "pi-tokometer";
 const USAGE = "Usage: /tokometer [on|off|visual single|multi|chase|tach|cycle|off]";
@@ -10,8 +10,8 @@ const USAGE = "Usage: /tokometer [on|off|visual single|multi|chase|tach|cycle|of
 export default function piTokometer(pi: ExtensionAPI) {
   const path = resolvePreferencesPath();
   const tracker = new AssistantSpeedTracker();
-  const revTracker = new RevTracker();
-  let rev = revTracker.update(0, defaultPreferences().levels, false);
+  const tachTracker = new TachTracker();
+  let tach = tachTracker.update(0, defaultPreferences().levels, false);
   let preferences = defaultPreferences();
   let timer: ReturnType<typeof setInterval> | undefined;
   let streaming = false;
@@ -29,7 +29,7 @@ export default function piTokometer(pi: ExtensionAPI) {
   function reset() {
     stopTimer(); tracker.reset(); streaming = false; completedUntil = 0; completed = undefined; displayedPeak = 0;
     readoutTps = 0; readoutPeak = 0; lastReadoutAt = undefined;
-    revTracker.reset(); rev = { tps: 0, gear: 0 };
+    tachTracker.reset(); tach = { tps: 0, gear: 0 };
   }
   function render(ctx: ExtensionContext) {
     if (ctx.mode !== "tui") { stopTimer(); return; }
@@ -45,10 +45,10 @@ export default function piTokometer(pi: ExtensionAPI) {
       readoutTps = streaming ? meter?.tps ?? 0 : 0;
       readoutPeak = displayedPeak;
       lastReadoutAt = now;
-      rev = revTracker.update(meter?.tps ?? 0, preferences.levels, streaming);
+      tach = tachTracker.update(meter?.tps ?? 0, preferences.levels, streaming);
     }
     ctx.ui.setStatus(STATUS_KEY, preferences.enabled
-      ? speedometerText({ ...(meter ?? { tps: 0 }), peak: readoutPeak }, ctx.ui.theme, preferences.compact, false, false, now, true, { visual: preferences.visual, currentTps: readoutTps, levels: preferences.levels, rev })
+      ? speedometerText({ ...(meter ?? { tps: 0 }), peak: readoutPeak }, ctx.ui.theme, preferences.compact, false, false, now, true, { visual: preferences.visual, currentTps: readoutTps, levels: preferences.levels, tach })
       : undefined);
     if (!preferences.enabled || (!streaming && !completedUntil)) { stopTimer(); return; }
     if (!timer) {
@@ -71,7 +71,7 @@ export default function piTokometer(pi: ExtensionAPI) {
     description: "Show or configure estimated model output tokens per second",
     handler: async (args, ctx) => {
       const command = args.trim().replace(/\s+/g, " ");
-      const valid = ["", "on", "off", "visual single", "visual multi", "visual chase", "visual tach", "visual rev", "visual cycle", "visual off"];
+      const valid = ["", "on", "off", "visual single", "visual multi", "visual chase", "visual tach", "visual cycle", "visual off"];
       if (!valid.includes(command)) { if (ctx.hasUI) ctx.ui.notify(USAGE, "warning"); return; }
       try {
         preferences = await updatePreferences(path, (current): Partial<Preferences> => {
@@ -85,7 +85,7 @@ export default function piTokometer(pi: ExtensionAPI) {
             : choice === "single" ? "dot"
             : choice === "multi" ? "squares"
             : choice === "chase" ? "chase"
-            : choice === "tach" || choice === "rev" ? "tach" : "dot";
+            : choice === "tach" ? "tach" : "dot";
           return { compact: false, visual };
         });
         lastReadoutAt = undefined;
@@ -103,7 +103,7 @@ export default function piTokometer(pi: ExtensionAPI) {
     await sync(ctx);
     tracker.start(event.message); streaming = true; completedUntil = 0; completed = undefined;
     lastReadoutAt = undefined;
-    revTracker.reset();
+    tachTracker.reset();
     render(ctx);
   });
   pi.on("message_update", (event, ctx) => {

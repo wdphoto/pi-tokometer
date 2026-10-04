@@ -3,10 +3,14 @@ import assert from "node:assert/strict";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { AssistantSpeedTracker } from "../extensions/tokometer/speedometer.ts";
 import { DEFAULT_LEVELS, type ToksLevel } from "../extensions/tokometer/preferences.ts";
-import { ansi256Index, speedometerText, toksLevelIndex } from "../extensions/tokometer/ui.ts";
+import { ansi256Index, speedometerText as rawSpeedometerText, toksLevelIndex } from "../extensions/tokometer/ui.ts";
+
+/** The renderer pads with non-breaking spaces so Pi's footer cannot collapse them; compare in plain spaces. */
+const speedometerText = (...args: Parameters<typeof rawSpeedometerText>): string =>
+  rawSpeedometerText(...args).replaceAll("\u00a0", " ").replaceAll("\u200b", "");
 
 test("level boundaries cover slow through thousand-token speeds", () => {
-  for (const [rate, level] of [[0, 0], [4.9, 0], [9.9, 0], [10, 1], [19.9, 1], [25, 2], [59.9, 2], [60, 3], [119.9, 3], [120, 4], [1000, 4]]) {
+  for (const [rate, level] of [[0, 0], [9.9, 0], [10, 1], [49.9, 1], [50, 2], [99.9, 2], [100, 3], [299.9, 3], [300, 4], [1000, 4]]) {
     assert.equal(toksLevelIndex(rate!, DEFAULT_LEVELS), level);
   }
   // A speed below the first min still resolves to level 0.
@@ -15,18 +19,18 @@ test("level boundaries cover slow through thousand-token speeds", () => {
   assert.equal(toksLevelIndex(50, highOnly), 0);
 });
 
-test("soft red-to-teal defaults use a concrete distinct palette and deterministic phases", () => {
+test("soft red-to-blue defaults use a concrete distinct palette and deterministic phases", () => {
   const theme = {
     fg: (color: string, text: string) => `${color}:${text}`,
     style: (text: string, options: { fg: { r: number; g: number; b: number } }) => `${options.fg.r},${options.fg.g},${options.fg.b}:${text}`,
   };
-  // [tps, concrete rgb, blink period]: red, peach, yellow, green, teal.
+  // [tps, concrete rgb, blink period]: red, peach, yellow, green, blue.
   const cases: [number, string, number][] = [
     [2, "243,139,168", 400],
     [15, "250,179,135", 400],
-    [40, "249,226,175", 400],
-    [90, "166,227,161", 300],
-    [200, "148,226,213", 150],
+    [70, "249,226,175", 400],
+    [150, "166,227,161", 300],
+    [500, "137,180,250", 150],
   ];
   for (const [tps, rgb, period] of cases) {
     const meter = (at: number) => ({ tps, live: true, lastActivityAt: at });
@@ -52,33 +56,33 @@ test("soft red-to-teal defaults use a concrete distinct palette and deterministi
 test("concrete palette uses host style, then capability fallback, else plain", () => {
   const truecolor = { getColorMode: () => "truecolor" };
   const index256 = { getColorMode: () => "256color" };
-  // Green level (60-<120 t/s) as a concrete sRGB foreground.
-  assert.equal(speedometerText({ tps: 90 }, truecolor, false, true), "\x1b[38;2;166;227;161m■\x1b[39m");
-  const indexed = speedometerText({ tps: 90 }, index256, false, true);
+  // Green level (100-<200 t/s) as a concrete sRGB foreground.
+  assert.equal(speedometerText({ tps: 150 }, truecolor, false, true), "\x1b[38;2;166;227;161m■\x1b[39m");
+  const indexed = speedometerText({ tps: 150 }, index256, false, true);
   assert.match(indexed, /^\x1b\[38;5;\d+m■\x1b\[39m$/);
   // Semantic-only and no-theme hosts render plain, never a user theme's semantic role.
-  assert.equal(speedometerText({ tps: 90 }, { fg: () => "green-role" }, false, true), "■");
-  assert.equal(speedometerText({ tps: 90 }, {}, false, true), "■");
-  assert.equal(speedometerText({ tps: 90 }, undefined, false, true), "■");
+  assert.equal(speedometerText({ tps: 150 }, { fg: () => "green-role" }, false, true), "■");
+  assert.equal(speedometerText({ tps: 150 }, {}, false, true), "■");
+  assert.equal(speedometerText({ tps: 150 }, undefined, false, true), "■");
   // Levels stay distinct even when a user theme maps semantic roles oddly.
-  assert.notEqual(speedometerText({ tps: 15 }, truecolor, false, true), speedometerText({ tps: 200 }, truecolor, false, true));
+  assert.notEqual(speedometerText({ tps: 15 }, truecolor, false, true), speedometerText({ tps: 300 }, truecolor, false, true));
   assert.notEqual(speedometerText({ tps: 15 }, truecolor, false, true), indexed);
   // Squares share the same capability path (inactive squares stay plain without a theme).
   assert.equal(
-    speedometerText({ tps: 90 }, truecolor, false, true, false, 0, true, { visual: "squares" }),
+    speedometerText({ tps: 150 }, truecolor, false, true, false, 0, true, { visual: "squares" }),
     "\x1b[38;2;166;227;161m■\x1b[39m".repeat(4) + "□",
   );
   assert.equal(
-    speedometerText({ tps: 90 }, index256, false, true, false, 0, true, { visual: "squares" }),
+    speedometerText({ tps: 150 }, index256, false, true, false, 0, true, { visual: "squares" }),
     "\x1b[38;5;151m■\x1b[39m".repeat(4) + "□",
   );
-  assert.equal(speedometerText({ tps: 90 }, {}, false, true, false, 0, true, { visual: "squares" }), "■■■■□");
+  assert.equal(speedometerText({ tps: 150 }, {}, false, true, false, 0, true, { visual: "squares" }), "■■■■□");
   // Stateless rendering: a theme change cannot leave cached ANSI colors stale.
   const themeA = { style: (text: string, o: { fg: { r: number } }) => `A${o.fg.r}:${text}` };
   const themeB = { style: (text: string, o: { fg: { r: number } }) => `B${o.fg.r}:${text}` };
   assert.notEqual(
-    speedometerText({ tps: 90 }, themeA, false, true, false, 0, true, { visual: "squares" }),
-    speedometerText({ tps: 90 }, themeB, false, true, false, 0, true, { visual: "squares" }),
+    speedometerText({ tps: 150 }, themeA, false, true, false, 0, true, { visual: "squares" }),
+    speedometerText({ tps: 150 }, themeB, false, true, false, 0, true, { visual: "squares" }),
   );
 });
 
@@ -118,9 +122,9 @@ test("squares show one position per level: five 20% blocks by default", () => {
   const cases: [number, string, number][] = [
     [2, "243,139,168", 1],
     [15, "250,179,135", 2],
-    [40, "249,226,175", 3],
-    [90, "166,227,161", 4],
-    [500, "148,226,213", 5],
+    [70, "249,226,175", 3],
+    [150, "166,227,161", 4],
+    [500, "137,180,250", 5],
   ];
   for (const [tps, rgb, active] of cases) {
     const meter = (at: number) => ({ tps, live: true, lastActivityAt: at });
@@ -130,7 +134,7 @@ test("squares show one position per level: five 20% blocks by default", () => {
   }
   // Real escapes never change the visible five-column width.
   const truecolor = { getColorMode: () => "truecolor" };
-  assert.equal(visibleWidth(speedometerText({ tps: 90 }, truecolor, false, true, false, 0, true, { visual: "squares" })), 5);
+  assert.equal(visibleWidth(speedometerText({ tps: 150 }, truecolor, false, true, false, 0, true, { visual: "squares" })), 5);
   assert.equal(visibleWidth(speedometerText({ tps: 0 }, truecolor, false, true, false, 0, true, { visual: "squares" })), 5);
 });
 
@@ -145,14 +149,14 @@ test("squares idle and stall neutral and keep peak/current layouts", () => {
   assert.equal(speedometerText({ tps: 500, live: true, lastActivityAt: 1000 }, theme, false, true, false, 2000, true, { visual: "squares" }), allInactive);
   const hot = "166,227,161:■".repeat(4) + "dim:□";
   assert.equal(
-    speedometerText({ tps: 90, peak: 142 }, theme, false, true, false, 0, true, { visual: "squares" }),
+    speedometerText({ tps: 150, peak: 142 }, theme, false, true, false, 0, true, { visual: "squares" }),
     `${hot} dim: 142↑ t/s`,
   );
   assert.equal(
-    speedometerText({ tps: 90, peak: 142 }, theme, false, false, false, 0, true, { visual: "squares" }),
-    `${hot} dim:  90/ 142↑ t/s`,
+    speedometerText({ tps: 150, peak: 142 }, theme, false, false, false, 0, true, { visual: "squares" }),
+    `${hot} dim: 150/ 142↑ t/s`,
   );
-  assert.equal(speedometerText({ tps: 90, peak: 142 }, theme, true, false, false, 0, true, { visual: "squares" }), "dim:  90/ 142↑ t/s");
+  assert.equal(speedometerText({ tps: 150, peak: 142 }, theme, true, false, false, 0, true, { visual: "squares" }), "dim: 150/ 142↑ t/s");
 });
 
 test("saved levels drive colors, square count and boundaries", () => {
@@ -221,16 +225,37 @@ test("chase dims on stalls, holds a static completion highlight, and keeps its w
   const options = { visual: "chase" } as const;
   const inactive = "dim:□".repeat(5);
   assert.equal(speedometerText({ tps: 0 }, theme, false, true, false, 0, true, options), inactive);
-  assert.equal(speedometerText({ tps: 90, live: true, lastActivityAt: 0 }, theme, false, true, false, 600, true, options), inactive);
+  assert.equal(speedometerText({ tps: 150, live: true, lastActivityAt: 0 }, theme, false, true, false, 600, true, options), inactive);
   const completed = "166,227,161:■" + "91,125,89:■".repeat(3) + "dim:□";
   for (const now of [0, 200, 500, 5000]) {
-    assert.equal(speedometerText({ tps: 90 }, theme, false, true, false, now, true, options), completed);
+    assert.equal(speedometerText({ tps: 150 }, theme, false, true, false, now, true, options), completed);
   }
   const truecolor = { getColorMode: () => "truecolor" };
-  assert.equal(visibleWidth(speedometerText({ tps: 90 }, truecolor, false, true, false, 0, true, options)), 5);
-  assert.equal(speedometerText({ tps: 90 }, {}, false, true, false, 0, true, options), "■■■■□");
-  assert.equal(speedometerText({ tps: 90, peak: 100 }, theme, false, false, false, 0, true, options), `${completed} dim:  90/ 100↑ t/s`);
-  assert.equal(speedometerText({ tps: 90 }, theme, false, true, true, 0, true, options), "166,227,161:■".repeat(4) + "dim:□");
+  assert.equal(visibleWidth(speedometerText({ tps: 150 }, truecolor, false, true, false, 0, true, options)), 5);
+  assert.equal(speedometerText({ tps: 150 }, {}, false, true, false, 0, true, options), "■■■■□");
+  assert.equal(speedometerText({ tps: 150, peak: 100 }, theme, false, false, false, 0, true, options), `${completed} dim: 150/ 100↑ t/s`);
+  assert.equal(speedometerText({ tps: 150 }, theme, false, true, true, 0, true, options), "166,227,161:■".repeat(4) + "dim:□");
+});
+
+test("numeric padding survives Pi's footer sanitizer at any value", () => {
+  // Pi's footer sanitizer collapses runs of regular spaces and trims edges.
+  const sanitize = (text: string) => text.replace(/[\r\n\t]/g, " ").replace(/ +/g, " ").trim();
+  const strip = (text: string) => text.replace(/\x1b\[[0-9;]*m/g, "");
+  for (const visual of ["dot", "squares", "chase", "tach"] as const) {
+    const widths = new Set<number>();
+    for (const rate of [0, 9, 42, 999, 1000, 1250, 99_500, 1e15]) {
+      const raw = rawSpeedometerText({ tps: rate, peak: rate }, undefined, false, false, false, 0, true, { visual });
+      widths.add(visibleWidth(sanitize(strip(raw))));
+    }
+    assert.equal(widths.size, 1, `visual ${visual} widths: ${[...widths].join(",")}`);
+    // Values shorter than four columns pad with non-breaking spaces.
+    assert.ok(rawSpeedometerText({ tps: 42, peak: 68 }, undefined, false, false, false, 0, true, { visual }).includes("\u00a0"), `visual ${visual} should pad with nbsp`);
+  }
+  // Numbers-only statuses keep their leading padding behind the zero-width prefix.
+  const short = rawSpeedometerText({ tps: 42, peak: 68 }, undefined, true);
+  const long = rawSpeedometerText({ tps: 1250, peak: 1250 }, undefined, true);
+  assert.ok(short.startsWith("\u200b") && long.startsWith("\u200b"));
+  assert.equal(visibleWidth(sanitize(strip(short))), visibleWidth(sanitize(strip(long))));
 });
 
 test("peak readout sits right of the square and full mode is unambiguous", () => {
@@ -246,8 +271,8 @@ test("numeric fields stay four columns across rounding and compact-unit boundari
     [0, "   0"], [0.4, "   0"], [0.5, "   1"], [9.5, "  10"],
     [99.9, " 100"], [999.4, " 999"], [999.5, "1.0k"], [1000, "1.0k"],
     [1250, "1.3k"], [9949, "9.9k"], [9950, " 10k"], [99_500, "100k"],
-    [999_500, "1.0M"], [1e9, "1.0B"], [1e12, "1.0T"], [1e15, "999+"],
-    [Number.MAX_VALUE, "999+"],
+    [999_500, "999k"], [1e9, "999k"], [1e12, "999k"], [1e15, "999k"],
+    [Number.MAX_VALUE, "999k"],
   ];
   for (const visual of ["dot", "squares", "chase"] as const) {
     for (const [rate, field] of cases) {
@@ -265,13 +290,13 @@ test("single square pulses at fixed width, dims on stalls, and supports steady m
     fg: (color: string, text: string) => `${color}:${text}`,
     style: (text: string, options: { fg: { r: number; g: number; b: number } }) => `${options.fg.r},${options.fg.g},${options.fg.b}:${text}`,
   };
-  const meter = { tps: 90, live: true, lastActivityAt: 1600 };
+  const meter = { tps: 150, live: true, lastActivityAt: 1600 };
   assert.equal(speedometerText(meter, theme, false, true, false, 1600), "166,227,161:■");
   assert.equal(speedometerText(meter, theme, false, true, false, 1750), "dim:■");
   assert.equal(speedometerText(meter, theme, false, true, true, 1800), "166,227,161:■");
   assert.equal(speedometerText(meter, theme, false, true, true, 2200), "dim:■");
   assert.equal(speedometerText({ tps: 0 }, theme, false, true), "dim:■");
-  assert.equal(speedometerText(meter, undefined, true), "  90 t/s");
+  assert.equal(speedometerText(meter, undefined, true), " 150 t/s");
   // Visual-only is the default layout; explicit false opts into numbers.
   assert.equal(speedometerText({ tps: 1000 }, undefined), "■");
   assert.equal(speedometerText({ tps: 1000 }, undefined, false, false), "■ 1.0k t/s");

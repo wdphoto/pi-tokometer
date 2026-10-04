@@ -26,7 +26,7 @@ function fixture(mode = "tui") {
     mode, hasUI: mode === "tui" || mode === "rpc",
     ui: {
       theme: { fg: (_color: string, text: string) => text },
-      setStatus: (key: string, text: string | undefined) => { assert.equal(key, STATUS_KEY); status = text; },
+      setStatus: (key: string, text: string | undefined) => { assert.equal(key, STATUS_KEY); status = text?.replaceAll("\u00a0", " ").replaceAll("\u200b", ""); },
       notify: (text: string) => notifications.push(text),
     },
   };
@@ -48,8 +48,6 @@ test("visual commands always preserve live and peak readings", async (t) => {
     await f.command(`visual ${choice}`, f.ctx);
     assert.match(f.status!, /   0\/   0↑ t\/s$/);
   }
-  await f.command("visual rev", f.ctx);
-  assert.equal((await loadPreferences(path)).visual, "tach");
   await f.command("  visual   off  ", f.ctx);
   assert.equal(f.status, "   0/   0↑ t/s");
   await f.command("visual cycle", f.ctx);
@@ -64,7 +62,7 @@ test("visual commands always preserve live and peak readings", async (t) => {
   assert.equal(f.status, undefined);
   await f.command("", f.ctx);
   assert.equal(f.status, "□□□□□    0/   0↑ t/s");
-  for (const old of ["dot", "squares", "cycle", "compact", "full", "led", "steady", "blink", "status", "peak", "numbers on", "numbers live", "numbers peak", "numbers both", "numbers cycle", "numbers off", "visual on", "visual dot", "visual meter", "visual flash", "nonsense"]) {
+  for (const old of ["dot", "squares", "cycle", "compact", "full", "led", "steady", "blink", "status", "peak", "numbers on", "numbers live", "numbers peak", "numbers both", "numbers cycle", "numbers off", "visual cylon", "visual rev", "visual on", "visual dot", "visual meter", "visual flash", "nonsense"]) {
     const before = await readFile(path, "utf8");
     await f.command(old, f.ctx);
     assert.match(f.notifications.at(-1)!, /^Usage:/);
@@ -96,10 +94,10 @@ test("bad settings are preserved; older visual choices load and retired number f
     await assert.rejects(updatePreferences(path, () => ({ enabled: false })));
     assert.equal(await readFile(path, "utf8"), content);
   }
-  for (const visual of ["dot", "squares", "flash", "chase", "tach", "rev", "meter", "bogus"]) {
+  for (const visual of ["dot", "squares", "flash", "chase", "tach", "meter", "bogus"]) {
     await writeFile(path, JSON.stringify({ version: 1, visual, steady: true, ledOnly: true, peakEnabled: false }));
     const prefs = await loadPreferences(path);
-    assert.equal(prefs.visual, visual === "bogus" ? "dot" : visual === "meter" || visual === "flash" ? "chase" : visual === "rev" ? "tach" : visual);
+    assert.equal(prefs.visual, visual === "bogus" ? "dot" : visual === "meter" || visual === "flash" ? "chase" : visual);
     assert.equal("peakEnabled" in prefs, false);
     const f = fixture();
     await f.emit("session_start");
@@ -190,19 +188,19 @@ test("numbers refresh every 500ms while visuals keep animating; completion zeros
   assert.equal(numbers(), "dim:   0/   0↑ t/s");
   now = 500; tick();
   assert.equal(numbers(), "dim: 100/ 100↑ t/s");
-  await update(550, 400);
+  await update(550, 800);
   assert.equal(numbers(), "dim: 100/ 100↑ t/s");
   now = 600; tick();
   assert.equal(numbers(), "dim: 100/ 100↑ t/s");
   assert.ok(colors.has("166,227,161"));
-  assert.ok(colors.has("148,226,213"));
+  assert.ok(colors.has("137,180,250"));
   now = 999; tick();
   assert.equal(numbers(), "dim: 100/ 100↑ t/s");
   now = 1000; tick();
-  assert.equal(numbers(), "dim: 200/ 200↑ t/s");
+  assert.equal(numbers(), "dim: 300/ 300↑ t/s");
   now = 1025;
   await f.emit("message_end", { message: { role: "assistant", timestamp: 0, usage: { output: 20 } } });
-  assert.equal(numbers(), "dim:   0/ 200↑ t/s");
+  assert.equal(numbers(), "dim:   0/ 300↑ t/s");
   await f.emit("session_shutdown");
 });
 
@@ -222,19 +220,19 @@ test("tach samples every 500ms, dims on stalls, holds completion and clears on s
   await f.emit("message_update", { message: { role: "assistant" }, assistantMessageEvent: { delta: "x".repeat(72) } });
   assert.equal(f.status, "□□□□□    0/   0↑ t/s");
   now = 500; tick();
-  assert.equal(f.status, "■■■□□   18/  18↑ t/s");
+  assert.equal(f.status, "■■□□□   18/  18↑ t/s");
   now = 550;
   await f.emit("message_update", { message: { role: "assistant" }, assistantMessageEvent: { delta: "x".repeat(32) } });
-  assert.equal(f.status, "■■■□□   18/  18↑ t/s");
+  assert.equal(f.status, "■■□□□   18/  18↑ t/s");
   now = 1000; tick();
-  assert.equal(f.status, "■□□□□   26/  26↑ t/s");
+  assert.equal(f.status, "■■■□□   26/  26↑ t/s");
   now = 1150; tick();
   assert.match(f.status!, /^□□□□□/);
   now = 1200;
   await f.emit("message_end", { message: { role: "assistant", timestamp: 0, usage: { output: 24 } } });
-  assert.equal(f.status, "■■■■□    0/  26↑ t/s");
+  assert.equal(f.status, "■■□□□    0/  26↑ t/s");
   now = 4199; tick();
-  assert.match(f.status!, /^■■■■□/);
+  assert.match(f.status!, /^■■□□□/);
   now = 4200; tick();
   assert.equal(f.status, "□□□□□    0/  26↑ t/s");
   await f.emit("session_start");

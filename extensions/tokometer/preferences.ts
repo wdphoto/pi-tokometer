@@ -7,7 +7,6 @@ import { enqueueStoreSave, withStoreLock } from "./save-queue.ts";
 export type ToksVisual = "dot" | "squares" | "chase" | "tach";
 export function resolveToksVisual(value: unknown): ToksVisual {
   if (value === "meter" || value === "flash") return "chase";
-  if (value === "rev") return "tach";
   return value === "squares" || value === "chase" || value === "tach" ? value : "dot";
 }
 /** One speed band: `min` tok/s and up, shown in `color` (#rrggbb). */
@@ -18,9 +17,9 @@ export interface ToksLevel {
 export const DEFAULT_LEVELS: readonly ToksLevel[] = [
   { min: 0, color: "#f38ba8" }, // red: slow
   { min: 10, color: "#fab387" }, // peach
-  { min: 25, color: "#f9e2af" }, // yellow
-  { min: 60, color: "#a6e3a1" }, // green
-  { min: 120, color: "#94e2d5" }, // teal: fast
+  { min: 50, color: "#f9e2af" }, // yellow
+  { min: 100, color: "#a6e3a1" }, // green
+  { min: 300, color: "#89b4fa" }, // blue: very fast
 ];
 /** Keep well-formed entries in ascending order; anything unusable falls back to the defaults. */
 export function resolveToksLevels(value: unknown): ToksLevel[] {
