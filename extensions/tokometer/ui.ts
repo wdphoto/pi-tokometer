@@ -27,12 +27,22 @@ export interface FooterSpeedometer {
   peak?: number;
 }
 
+/** Four columns, including rounding transitions into compact units. */
 function tps(value: number | undefined): string {
-  return value !== undefined && Number.isFinite(value) && value >= 0 ? `${value === 0 ? "0" : value.toFixed(value >= 10 ? 0 : 1)}` : "—";
+  if (value === undefined || !Number.isFinite(value) || value < 0) return "   —";
+  const rounded = Math.round(value);
+  if (rounded < 1000) return String(rounded).padStart(4);
+  const units = ["k", "M", "B", "T"];
+  for (let i = 0; i < units.length; i++) {
+    const scaled = value / 1000 ** (i + 1);
+    const compact = scaled.toFixed(scaled < 9.95 ? 1 : 0);
+    if (Number(compact) < 1000) return `${compact}${units[i]}`.padStart(4);
+  }
+  return "999+";
 }
 
 function peakTps(value: number | undefined): string {
-  return value !== undefined && Number.isFinite(value) && value >= 0 ? `${value === 0 ? "0" : value.toFixed(value >= 10 ? 0 : 1)}↑` : "";
+  return value !== undefined && Number.isFinite(value) && value >= 0 ? `${tps(value)}↑` : "";
 }
 
 /** Highest level whose `min` the speed has reached; a speed below every `min` stays at level 0. */

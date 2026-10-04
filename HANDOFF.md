@@ -3,7 +3,11 @@
 ## Paused here
 
 The current implementation is ready for further manual use. No feature request
-is pending. Version remains 0.0.1; changes are listed under Unreleased.
+is pending. Local version is now 0.0.2; changes are listed under 0.0.2 in CHANGE.md.
+The latest pass added fixed-width numeric fields and bumped metadata/docs.
+The user authorized committing and pushing these 0.0.2 changes to origin/main;
+check Git history/status for the outcome. No tag, publication, or remote release
+was requested.
 The user authorized a commit and push to origin/main after this handoff was
 written. Check Git history/status for the outcome. No tag, release, or publication
 was requested. Preserve any subsequent working-tree changes when resuming.
@@ -11,7 +15,10 @@ was requested. Preserve any subsequent working-tree changes when resuming.
 ## Current behavior
 
 - Standalone, local, TUI-only Pi extension.
-- Footer: `■ 42/68↑ t/s` — live/peak, always shown while enabled.
+- Footer: `■   42/  68↑ t/s` — live/peak, always shown while enabled.
+- Each number is four right-aligned columns: whole numbers below 1,000, compact
+  units above (`1.2k`, `10k`, `100k`, then M/B/T). Rounding can promote to the next
+  unit; out-of-range values show `999+` rather than expanding the width.
 - Numbers refresh every 500ms. This slows the readout; it does not add averaging
   beyond the existing rolling one-second speed estimate.
 - Visual animation refreshes every 25ms, with no idle timer or tick-time disk IO.
@@ -24,7 +31,7 @@ was requested. Preserve any subsequent working-tree changes when resuming.
   visual reading for three seconds; live immediately becomes zero.
 - Last peak stays visible through idle and the next response's initial wait.
   Replace it at that response's first numeric refresh with measured output.
-  Session start/reload resets the readout to `0/0↑ t/s`.
+  Session start/reload resets the readout to `   0/   0↑ t/s`.
 
 ## Settings and defaults
 
@@ -77,7 +84,7 @@ Last full run passed:
 git diff --check
 ```
 
-25 tests passed. README's settings JSON was parsed and checked for version 1 and
+26 tests passed, including fixed-width formatting and compact-unit rounding boundaries. README's settings JSON was parsed and checked for version 1 and
 its levels array. No automated live-provider tests were run. Manual visual feel,
 narrow-terminal rendering, and light-theme contrast still need hands-on review.
 
@@ -100,7 +107,8 @@ No tags, publication, or release commands were authorized.
   their mind about grouped flashes.
 - Red means slow, not fast. Keep the softer red → peach → yellow → green → teal
   defaults, and preserve custom levels.
-- Numbers are always live/peak, not selectable modes. Keep `42/68↑ t/s`.
+- Numbers are always live/peak, not selectable modes. Keep four-column fields:
+  `  42/  68↑ t/s`.
 - README and agent instructions no longer describe this as part of another project.
   The original copyright attribution remains in LICENSE as required by MIT.
 - Old npm/package metadata and scripts still exist in `package.json` and the

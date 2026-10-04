@@ -6,7 +6,9 @@ dependencies.
 
 ## Current behavior
 
-- Readout: `42/68↑ t/s` means live/peak. Both numbers are always visible while enabled.
+- Readout: `  42/  68↑ t/s` means live/peak. Both numbers are always visible while enabled.
+- Each number occupies four right-aligned columns. Round low speeds to whole numbers;
+  use compact units from 1,000 (`1.2k`, `10k`, `100k`, then M/B/T); overflow is `999+`.
 - Numbers refresh every 500ms; visuals animate every 25ms.
 - Commands: `/tokometer`, `on`, `off`, and `visual single|multi|chase|cycle|off`.
 - Single blinks; multi fills; chase moves a highlight. Default: single.

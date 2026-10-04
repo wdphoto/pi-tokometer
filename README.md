@@ -2,17 +2,22 @@
 
 Shows estimated model output tokens per second in Pi’s footer.
 
+Current version: **0.0.2**. See [CHANGE.md](CHANGE.md) for changes.
+
 ```text
-■ 42/68↑ t/s
+■   42/  68↑ t/s
 ```
 
 The first number is live speed; the number with `↑` is the response peak.
-Both refresh twice per second, independently of the animation.
+Both refresh twice per second, independently of the animation. Each number is
+right-aligned in four columns so the layout never shifts. Speeds below 1,000
+round to whole numbers; higher speeds use compact units (`1.2k`, `10k`, `100k`,
+then `M`, `B`, and `T`). Values beyond the compact range show `999+`.
 
 When a response ends, live speed immediately returns to zero. The last peak
 stays visible through idle and the next response’s initial wait, until that
 response produces a new numeric reading. A new session or reload starts at
-`0/0↑ t/s`.
+`   0/   0↑ t/s`.
 
 ## Load
 
@@ -55,7 +60,7 @@ These are plain-text previews; the actual squares use the colors below.
 **Single** — one blinking square beside live/peak:
 
 ```text
-■ 42/68↑ t/s
+■   42/  68↑ t/s
 ```
 
 ```text
@@ -65,9 +70,9 @@ These are plain-text previews; the actual squares use the colors below.
 **Multi** — the bar fills as speed rises:
 
 ```text
-■□□□□ 5/8↑ t/s
-■■■□□ 42/68↑ t/s
-■■■■■ 150/180↑ t/s
+■□□□□    5/   8↑ t/s
+■■■□□   42/  68↑ t/s
+■■■■■  150/ 180↑ t/s
 ```
 
 ```text
@@ -78,11 +83,11 @@ These are plain-text previews; the actual squares use the colors below.
 mark the highlight for this example; they are not part of the footer:
 
 ```text
-■■■□□ 42/68↑ t/s
+■■■□□   42/  68↑ t/s
 ^
-■■■□□ 42/68↑ t/s
+■■■□□   42/  68↑ t/s
  ^
-■■■□□ 42/68↑ t/s
+■■■□□   42/  68↑ t/s
   ^
 ```
 
@@ -93,7 +98,7 @@ mark the highlight for this example; they are not part of the footer:
 **Numbers only** — no visual, same live/peak reading:
 
 ```text
-42/68↑ t/s
+  42/  68↑ t/s
 ```
 
 ```text

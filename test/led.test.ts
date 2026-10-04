@@ -146,13 +146,13 @@ test("squares idle and stall neutral and keep peak/current layouts", () => {
   const hot = "166,227,161:■".repeat(4) + "dim:□";
   assert.equal(
     speedometerText({ tps: 90, peak: 142 }, theme, false, true, false, 0, true, { visual: "squares" }),
-    `${hot} dim:142↑ t/s`,
+    `${hot} dim: 142↑ t/s`,
   );
   assert.equal(
     speedometerText({ tps: 90, peak: 142 }, theme, false, false, false, 0, true, { visual: "squares" }),
-    `${hot} dim:90/142↑ t/s`,
+    `${hot} dim:  90/ 142↑ t/s`,
   );
-  assert.equal(speedometerText({ tps: 90, peak: 142 }, theme, true, false, false, 0, true, { visual: "squares" }), "dim:90/142↑ t/s");
+  assert.equal(speedometerText({ tps: 90, peak: 142 }, theme, true, false, false, 0, true, { visual: "squares" }), "dim:  90/ 142↑ t/s");
 });
 
 test("saved levels drive colors, square count and boundaries", () => {
@@ -229,16 +229,35 @@ test("chase dims on stalls, holds a static completion highlight, and keeps its w
   const truecolor = { getColorMode: () => "truecolor" };
   assert.equal(visibleWidth(speedometerText({ tps: 90 }, truecolor, false, true, false, 0, true, options)), 5);
   assert.equal(speedometerText({ tps: 90 }, {}, false, true, false, 0, true, options), "■■■■□");
-  assert.equal(speedometerText({ tps: 90, peak: 100 }, theme, false, false, false, 0, true, options), `${completed} dim:90/100↑ t/s`);
+  assert.equal(speedometerText({ tps: 90, peak: 100 }, theme, false, false, false, 0, true, options), `${completed} dim:  90/ 100↑ t/s`);
   assert.equal(speedometerText({ tps: 90 }, theme, false, true, true, 0, true, options), "166,227,161:■".repeat(4) + "dim:□");
 });
 
 test("peak readout sits right of the square and full mode is unambiguous", () => {
-  assert.equal(speedometerText({ tps: 100, peak: 142 }, undefined, false, true), "■ 142↑ t/s");
-  assert.equal(speedometerText({ tps: 100, peak: 142 }, undefined, false, false), "■ 100/142↑ t/s");
+  assert.equal(speedometerText({ tps: 100, peak: 142 }, undefined, false, true), "■  142↑ t/s");
+  assert.equal(speedometerText({ tps: 100, peak: 142 }, undefined, false, false), "■  100/ 142↑ t/s");
   assert.equal(speedometerText({ tps: 100 }, undefined, false, true), "■");
   assert.equal(speedometerText({ tps: 100, peak: 142 }, undefined, false, true, false, Date.now(), false), "■");
-  assert.equal(speedometerText({ tps: 100, peak: 142 }, undefined, true), "100/142↑ t/s");
+  assert.equal(speedometerText({ tps: 100, peak: 142 }, undefined, true), " 100/ 142↑ t/s");
+});
+
+test("numeric fields stay four columns across rounding and compact-unit boundaries", () => {
+  const cases: [number, string][] = [
+    [0, "   0"], [0.4, "   0"], [0.5, "   1"], [9.5, "  10"],
+    [99.9, " 100"], [999.4, " 999"], [999.5, "1.0k"], [1000, "1.0k"],
+    [1250, "1.3k"], [9949, "9.9k"], [9950, " 10k"], [99_500, "100k"],
+    [999_500, "1.0M"], [1e9, "1.0B"], [1e12, "1.0T"], [1e15, "999+"],
+    [Number.MAX_VALUE, "999+"],
+  ];
+  for (const visual of ["dot", "squares", "chase"] as const) {
+    for (const [rate, field] of cases) {
+      const rendered = speedometerText({ tps: rate, peak: rate }, { getColorMode: () => "truecolor" }, false, false, true, 0, true, { visual });
+      assert.ok(rendered.endsWith(` ${field}/${field}↑ t/s`), `${rate}: ${rendered}`);
+      assert.equal(visibleWidth(rendered), (visual === "dot" ? 1 : 5) + 15);
+      assert.equal(speedometerText({ tps: rate, peak: rate }, undefined, true), `${field}/${field}↑ t/s`);
+    }
+  }
+  assert.equal(speedometerText({ tps: 1000, peak: 1250 }, undefined, false, false, false, 0, true, { currentTps: 0 }), "■    0/1.3k↑ t/s");
 });
 
 test("single square pulses at fixed width, dims on stalls, and supports steady motion", () => {
@@ -252,10 +271,10 @@ test("single square pulses at fixed width, dims on stalls, and supports steady m
   assert.equal(speedometerText(meter, theme, false, true, true, 1800), "166,227,161:■");
   assert.equal(speedometerText(meter, theme, false, true, true, 2200), "dim:■");
   assert.equal(speedometerText({ tps: 0 }, theme, false, true), "dim:■");
-  assert.equal(speedometerText(meter, undefined, true), "90 t/s");
+  assert.equal(speedometerText(meter, undefined, true), "  90 t/s");
   // Visual-only is the default layout; explicit false opts into numbers.
   assert.equal(speedometerText({ tps: 1000 }, undefined), "■");
-  assert.equal(speedometerText({ tps: 1000 }, undefined, false, false), "■ 1000 t/s");
+  assert.equal(speedometerText({ tps: 1000 }, undefined, false, false), "■ 1.0k t/s");
 });
 
 test("recent speed expires on silence and buffered flush includes the gap", () => {

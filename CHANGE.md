@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.0.2
 
-- Always show live/peak as `42/68↑ t/s`. Numbers refresh every 500ms, independently of the 25ms animation tick.
+- Fixed live/peak numbers to four right-aligned columns: `  42/  68↑ t/s`. Round lower speeds to whole numbers and compact thousands as `1.2k`, keeping the footer width stable.
+- Always show live/peak readings. Numbers refresh every 500ms, independently of the 25ms animation tick.
 - Keep the peak slot visible through idle and the next response's initial wait. Startup, new sessions, and reload show zero; completion immediately zeros live speed.
 - Simplified commands to on/off and `visual single|multi|chase|cycle|off`. Removed layout, motion, status, and number-display commands.
 - Replaced the dot with a single square. Single blink periods are 400/400/400/300/150ms by level.

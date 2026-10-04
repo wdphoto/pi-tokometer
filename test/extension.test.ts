@@ -41,27 +41,27 @@ test("visual commands always preserve live and peak readings", async (t) => {
   const path = await sandbox(t);
   const f = fixture();
   await f.emit("session_start");
-  assert.equal(f.status, "■ 0/0↑ t/s");
+  assert.equal(f.status, "■    0/   0↑ t/s");
   for (const [choice, saved] of [["multi", "squares"], ["chase", "chase"], ["single", "dot"]]) {
     await f.command("visual cycle", f.ctx);
     assert.equal((await loadPreferences(path)).visual, saved);
     await f.command(`visual ${choice}`, f.ctx);
-    assert.match(f.status!, /0\/0↑ t\/s$/);
+    assert.match(f.status!, /   0\/   0↑ t\/s$/);
   }
   await f.command("  visual   off  ", f.ctx);
-  assert.equal(f.status, "0/0↑ t/s");
+  assert.equal(f.status, "   0/   0↑ t/s");
   await f.command("visual cycle", f.ctx);
-  assert.equal(f.status, "■ 0/0↑ t/s");
+  assert.equal(f.status, "■    0/   0↑ t/s");
   await f.command("off", f.ctx);
   assert.equal(f.status, undefined);
   await f.command("visual multi", f.ctx);
   assert.equal(f.status, undefined);
   await f.command("on", f.ctx);
-  assert.equal(f.status, "□□□□□ 0/0↑ t/s");
+  assert.equal(f.status, "□□□□□    0/   0↑ t/s");
   await f.command("", f.ctx);
   assert.equal(f.status, undefined);
   await f.command("", f.ctx);
-  assert.equal(f.status, "□□□□□ 0/0↑ t/s");
+  assert.equal(f.status, "□□□□□    0/   0↑ t/s");
   for (const old of ["dot", "squares", "cycle", "compact", "full", "led", "steady", "blink", "status", "peak", "numbers on", "numbers live", "numbers peak", "numbers both", "numbers cycle", "numbers off", "visual on", "visual dot", "visual meter", "visual flash", "nonsense"]) {
     const before = await readFile(path, "utf8");
     await f.command(old, f.ctx);
@@ -77,7 +77,7 @@ test("loaded instances sync changes and concurrent writes preserve unrelated pre
   await a.emit("session_start"); await b.emit("session_start");
   await a.command("visual off", a.ctx);
   await b.emit("session_tree");
-  assert.equal(b.status, "0/0↑ t/s");
+  assert.equal(b.status, "   0/   0↑ t/s");
   await Promise.all([
     updatePreferences(path, () => ({ visual: "chase" })),
     updatePreferences(path, () => ({ enabled: false })),
@@ -101,7 +101,7 @@ test("bad settings are preserved; older visual choices load and retired number f
     assert.equal("peakEnabled" in prefs, false);
     const f = fixture();
     await f.emit("session_start");
-    assert.match(f.status!, /0\/0↑ t\/s$/);
+    assert.match(f.status!, /   0\/   0↑ t\/s$/);
     await f.emit("session_shutdown");
   }
 });
@@ -123,38 +123,38 @@ test("peak never disappears across holds, starts, empty responses and visual cha
   await f.command("visual single", f.ctx);
   const before = await readFile(path, "utf8");
   await f.emit("message_start", { message: { role: "assistant", timestamp: 1000 } });
-  assert.equal(f.status, "■ 0/0↑ t/s");
+  assert.equal(f.status, "■    0/   0↑ t/s");
   now = 1500;
   await f.emit("message_update", { message: { role: "assistant" }, assistantMessageEvent: { delta: "x".repeat(400) } });
-  assert.equal(f.status, "■ 100/100↑ t/s");
+  assert.equal(f.status, "■  100/ 100↑ t/s");
   now = 2700; tick!();
-  assert.equal(f.status, "■ 0/100↑ t/s");
+  assert.equal(f.status, "■    0/ 100↑ t/s");
   await f.emit("message_end", { message: { role: "assistant", timestamp: 1000, usage: { output: 17 } } });
-  assert.equal(f.status, "■ 0/100↑ t/s");
+  assert.equal(f.status, "■    0/ 100↑ t/s");
   now = 5700; tick!();
-  assert.equal(f.status, "■ 0/100↑ t/s");
+  assert.equal(f.status, "■    0/ 100↑ t/s");
   assert.equal(tick, undefined); assert.ok(cleared > 0);
   assert.equal(await readFile(path, "utf8"), before);
   await f.emit("message_start", { message: { role: "assistant", timestamp: 5700 } });
-  assert.equal(f.status, "■ 0/100↑ t/s");
+  assert.equal(f.status, "■    0/ 100↑ t/s");
   now = 5800;
   await f.emit("message_end", { message: { role: "assistant", timestamp: 5700 } });
-  assert.equal(f.status, "■ 0/100↑ t/s");
+  assert.equal(f.status, "■    0/ 100↑ t/s");
   await f.command("visual off", f.ctx);
-  assert.equal(f.status, "0/100↑ t/s");
+  assert.equal(f.status, "   0/ 100↑ t/s");
   await f.emit("message_start", { message: { role: "assistant", timestamp: 5800 } });
   now = 6000;
   await f.emit("message_update", { message: { role: "assistant" }, assistantMessageEvent: { delta: "x".repeat(40) } });
-  assert.equal(f.status, "0/100↑ t/s");
+  assert.equal(f.status, "   0/ 100↑ t/s");
   now = 6300; tick!();
-  assert.equal(f.status, "10/10↑ t/s");
+  assert.equal(f.status, "  10/  10↑ t/s");
   await f.command("off", f.ctx);
   assert.equal(f.status, undefined); assert.equal(tick, undefined);
   await f.command("on", f.ctx);
-  assert.equal(f.status, "10/10↑ t/s");
+  assert.equal(f.status, "  10/  10↑ t/s");
   await f.emit("session_start");
   assert.equal(tick, undefined);
-  assert.equal(f.status, "0/0↑ t/s");
+  assert.equal(f.status, "   0/   0↑ t/s");
   await f.emit("session_shutdown");
   assert.equal(f.status, undefined);
 });
@@ -183,24 +183,24 @@ test("numbers refresh every 500ms while visuals keep animating; completion zeros
     tick();
   };
   await update(100, 400);
-  assert.equal(numbers(), "dim:0/0↑ t/s");
+  assert.equal(numbers(), "dim:   0/   0↑ t/s");
   now = 499; tick();
-  assert.equal(numbers(), "dim:0/0↑ t/s");
+  assert.equal(numbers(), "dim:   0/   0↑ t/s");
   now = 500; tick();
-  assert.equal(numbers(), "dim:100/100↑ t/s");
+  assert.equal(numbers(), "dim: 100/ 100↑ t/s");
   await update(550, 400);
-  assert.equal(numbers(), "dim:100/100↑ t/s");
+  assert.equal(numbers(), "dim: 100/ 100↑ t/s");
   now = 600; tick();
-  assert.equal(numbers(), "dim:100/100↑ t/s");
+  assert.equal(numbers(), "dim: 100/ 100↑ t/s");
   assert.ok(colors.has("166,227,161"));
   assert.ok(colors.has("148,226,213"));
   now = 999; tick();
-  assert.equal(numbers(), "dim:100/100↑ t/s");
+  assert.equal(numbers(), "dim: 100/ 100↑ t/s");
   now = 1000; tick();
-  assert.equal(numbers(), "dim:200/200↑ t/s");
+  assert.equal(numbers(), "dim: 200/ 200↑ t/s");
   now = 1025;
   await f.emit("message_end", { message: { role: "assistant", timestamp: 0, usage: { output: 20 } } });
-  assert.equal(numbers(), "dim:0/200↑ t/s");
+  assert.equal(numbers(), "dim:   0/ 200↑ t/s");
   await f.emit("session_shutdown");
 });
 
