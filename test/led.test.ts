@@ -7,7 +7,7 @@ import { ansi256Index, speedometerText as rawSpeedometerText, toksLevelIndex } f
 
 /** The renderer pads with non-breaking spaces so Pi's footer cannot collapse them; compare in plain spaces. */
 const speedometerText = (...args: Parameters<typeof rawSpeedometerText>): string =>
-  rawSpeedometerText(...args).replaceAll("\u00a0", " ").replaceAll("\u200b", "");
+  rawSpeedometerText(...args).replaceAll("\u00a0", " ").replaceAll("\u200b", "").trimEnd();
 
 test("level boundaries cover slow through thousand-token speeds", () => {
   for (const [rate, level] of [[0, 0], [9.9, 0], [10, 1], [99.9, 1], [100, 2], [199.9, 2], [200, 3], [499.9, 3], [500, 4], [1000, 4]]) {
@@ -150,13 +150,13 @@ test("squares idle and stall neutral and keep peak/current layouts", () => {
   const hot = "166,227,161:■".repeat(4) + "dim:□";
   assert.equal(
     speedometerText({ tps: 350, peak: 142 }, theme, false, true, false, 0, true, { visual: "squares" }),
-    `${hot} dim: 142↑ t/s`,
+    `${hot} dim:142↑ t/s`,
   );
   assert.equal(
     speedometerText({ tps: 350, peak: 142 }, theme, false, false, false, 0, true, { visual: "squares" }),
-    `${hot} dim: 350/ 142↑ t/s`,
+    `${hot} dim:350/142↑ t/s`,
   );
-  assert.equal(speedometerText({ tps: 350, peak: 142 }, theme, true, false, false, 0, true, { visual: "squares" }), "dim: 350/ 142↑ t/s");
+  assert.equal(speedometerText({ tps: 350, peak: 142 }, theme, true, false, false, 0, true, { visual: "squares" }), "dim:350/142↑ t/s");
 });
 
 test("saved levels drive colors, square count and boundaries", () => {
@@ -233,7 +233,7 @@ test("chase dims on stalls, holds a static completion highlight, and keeps its w
   const truecolor = { getColorMode: () => "truecolor" };
   assert.equal(visibleWidth(speedometerText({ tps: 350 }, truecolor, false, true, false, 0, true, options)), 5);
   assert.equal(speedometerText({ tps: 350 }, {}, false, true, false, 0, true, options), "■■■■□");
-  assert.equal(speedometerText({ tps: 350, peak: 100 }, theme, false, false, false, 0, true, options), `${completed} dim: 350/ 100↑ t/s`);
+  assert.equal(speedometerText({ tps: 350, peak: 100 }, theme, false, false, false, 0, true, options), `${completed} dim:350/100↑ t/s`);
   assert.equal(speedometerText({ tps: 350 }, theme, false, true, true, 0, true, options), "166,227,161:■".repeat(4) + "dim:□");
 });
 
@@ -248,29 +248,36 @@ test("numeric padding survives Pi's footer sanitizer at any value", () => {
       widths.add(visibleWidth(sanitize(strip(raw))));
     }
     assert.equal(widths.size, 1, `visual ${visual} widths: ${[...widths].join(",")}`);
-    // Values shorter than four columns pad with non-breaking spaces.
-    assert.ok(rawSpeedometerText({ tps: 42, peak: 68 }, undefined, false, false, false, 0, true, { visual }).includes("\u00a0"), `visual ${visual} should pad with nbsp`);
+    const short = rawSpeedometerText({ tps: 42, peak: 68 }, undefined, false, false, false, 0, true, { visual });
+    assert.ok(short.endsWith(`42/68↑ t/s${"\u00a0".repeat(4)}\u200b`));
+    assert.equal(sanitize(strip(short)), short);
+    assert.equal(visibleWidth(`${sanitize(strip(short))} NEXT`), (visual === "dot" ? 1 : 5) + 20);
   }
-  // Numbers-only statuses keep their leading padding behind the zero-width prefix.
-  const short = rawSpeedometerText({ tps: 42, peak: 68 }, undefined, true);
-  const long = rawSpeedometerText({ tps: 1250, peak: 1250 }, undefined, true);
-  assert.ok(short.startsWith("\u200b") && long.startsWith("\u200b"));
-  assert.equal(visibleWidth(sanitize(strip(short))), visibleWidth(sanitize(strip(long))));
+  // The zero-width suffix protects trailing padding in numbers-only mode too.
+  for (const theme of [undefined, { getColorMode: () => "truecolor", fg: (_color: "dim", text: string) => `\x1b[2m${text}\x1b[22m` }]) {
+    for (const [current, peak] of [[0, 0], [9, 1250], [1250, 9], [1250, 1250]]) {
+      const raw = rawSpeedometerText({ tps: current!, peak: peak! }, theme, true);
+      assert.ok(strip(raw).endsWith("\u200b"));
+      assert.equal(visibleWidth(sanitize(raw)), 14);
+      assert.equal(visibleWidth(sanitize(strip(raw))), 14);
+      assert.ok(!strip(raw).startsWith("\u200b"));
+    }
+  }
 });
 
 test("peak readout sits right of the square and full mode is unambiguous", () => {
-  assert.equal(speedometerText({ tps: 100, peak: 142 }, undefined, false, true), "■  142↑ t/s");
-  assert.equal(speedometerText({ tps: 100, peak: 142 }, undefined, false, false), "■  100/ 142↑ t/s");
+  assert.equal(speedometerText({ tps: 100, peak: 142 }, undefined, false, true), "■ 142↑ t/s");
+  assert.equal(speedometerText({ tps: 100, peak: 142 }, undefined, false, false), "■ 100/142↑ t/s");
   assert.equal(speedometerText({ tps: 100 }, undefined, false, true), "■");
   assert.equal(speedometerText({ tps: 100, peak: 142 }, undefined, false, true, false, Date.now(), false), "■");
-  assert.equal(speedometerText({ tps: 100, peak: 142 }, undefined, true), " 100/ 142↑ t/s");
+  assert.equal(speedometerText({ tps: 100, peak: 142 }, undefined, true), "100/142↑ t/s");
 });
 
-test("numeric fields stay four columns across rounding and compact-unit boundaries", () => {
+test("packed numeric readings reserve a fixed block across rounding and compact-unit boundaries", () => {
   const cases: [number, string][] = [
-    [0, "   0"], [0.4, "   0"], [0.5, "   1"], [9.5, "  10"],
-    [99.9, " 100"], [999.4, " 999"], [999.5, "1.0k"], [1000, "1.0k"],
-    [1250, "1.3k"], [9949, "9.9k"], [9950, " 10k"], [99_500, "100k"],
+    [0, "0"], [0.4, "0"], [0.5, "1"], [9.5, "10"],
+    [99.9, "100"], [999.4, "999"], [999.5, "1.0k"], [1000, "1.0k"],
+    [1250, "1.3k"], [9949, "9.9k"], [9950, "10k"], [99_500, "100k"],
     [999_500, "999k"], [1e9, "999k"], [1e12, "999k"], [1e15, "999k"],
     [Number.MAX_VALUE, "999k"],
   ];
@@ -278,11 +285,12 @@ test("numeric fields stay four columns across rounding and compact-unit boundari
     for (const [rate, field] of cases) {
       const rendered = speedometerText({ tps: rate, peak: rate }, { getColorMode: () => "truecolor" }, false, false, true, 0, true, { visual });
       assert.ok(rendered.endsWith(` ${field}/${field}↑ t/s`), `${rate}: ${rendered}`);
-      assert.equal(visibleWidth(rendered), (visual === "dot" ? 1 : 5) + 15);
+      const raw = rawSpeedometerText({ tps: rate, peak: rate }, { getColorMode: () => "truecolor" }, false, false, true, 0, true, { visual });
+      assert.equal(visibleWidth(raw), (visual === "dot" ? 1 : 5) + 15);
       assert.equal(speedometerText({ tps: rate, peak: rate }, undefined, true), `${field}/${field}↑ t/s`);
     }
   }
-  assert.equal(speedometerText({ tps: 1000, peak: 1250 }, undefined, false, false, false, 0, true, { currentTps: 0 }), "■    0/1.3k↑ t/s");
+  assert.equal(speedometerText({ tps: 1000, peak: 1250 }, undefined, false, false, false, 0, true, { currentTps: 0 }), "■ 0/1.3k↑ t/s");
 });
 
 test("single square pulses at fixed width, dims on stalls, and supports steady motion", () => {
@@ -296,7 +304,7 @@ test("single square pulses at fixed width, dims on stalls, and supports steady m
   assert.equal(speedometerText(meter, theme, false, true, true, 1800), "166,227,161:■");
   assert.equal(speedometerText(meter, theme, false, true, true, 2200), "dim:■");
   assert.equal(speedometerText({ tps: 0 }, theme, false, true), "dim:■");
-  assert.equal(speedometerText(meter, undefined, true), " 350 t/s");
+  assert.equal(speedometerText(meter, undefined, true), "350 t/s");
   // Visual-only is the default layout; explicit false opts into numbers.
   assert.equal(speedometerText({ tps: 1000 }, undefined), "■");
   assert.equal(speedometerText({ tps: 1000 }, undefined, false, false), "■ 1.0k t/s");

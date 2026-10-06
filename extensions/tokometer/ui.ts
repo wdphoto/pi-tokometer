@@ -28,19 +28,19 @@ export interface FooterSpeedometer {
   peak?: number;
 }
 
-// Pi's footer sanitizer collapses runs of regular spaces and trims status edges,
-// so numeric padding must use non-breaking spaces to keep a fixed width.
+// Pi collapses regular spaces and trims status edges. Use non-breaking trailing
+// padding plus a zero-width suffix to preserve the readout's reserved width.
 const PAD = "\u00a0";
 const ZWSP = "\u200b";
 
-/** Four columns up to `1.0k`; thousands stay compact and wider values clamp to `999k`. */
+/** Unpadded digits; thousands stay compact and wider values clamp to `999k`. */
 function tps(value: number | undefined): string {
-  if (value === undefined || !Number.isFinite(value) || value < 0) return `${PAD.repeat(3)}—`;
+  if (value === undefined || !Number.isFinite(value) || value < 0) return "—";
   const rounded = Math.round(value);
-  if (rounded < 1000) return String(rounded).padStart(4, PAD);
+  if (rounded < 1000) return String(rounded);
   if (value >= 999_500) return "999k";
   const compact = value < 9_950 ? (value / 1000).toFixed(1) : String(Math.round(value / 1000));
-  return `${compact}k`.padStart(4, PAD);
+  return `${compact}k`;
 }
 
 function peakTps(value: number | undefined): string {
@@ -220,10 +220,13 @@ export function speedometerText(speedometer: FooterSpeedometer | undefined, them
   const peak = peakEnabled ? peakTps(speedometer.peak) : "";
   const numbersEnabled = ledOnly === false || (compact === true && ledOnly === undefined);
   const current = numbersEnabled ? tps(options.currentTps ?? speedometer.tps) : "";
-  const values = [current, peak].filter(Boolean).join("/");
-  const readings = values ? fg(theme, "dim", `${values} t/s`) : "";
+  const fields = [current, peak].filter(Boolean);
+  const values = fields.join("/");
+  // Reserve four columns per number, plus the peak arrow, separator, and unit.
+  // Pack digits together and let unused columns sit after t/s instead.
+  const width = fields.length * 4 + (peak ? 1 : 0) + Math.max(0, fields.length - 1) + 4;
+  const readings = values ? fg(theme, "dim", `${values} t/s`.padEnd(width, PAD)) : "";
   if (!readings) return meterText;
-  // Without a visual the status starts with the padded field; the zero-width prefix
-  // keeps Pi's trim from eating that leading padding.
-  return meterText ? `${meterText} ${readings}` : `${ZWSP}${readings}`;
+  // The suffix protects trailing NBSPs even when the theme supplies no ANSI reset.
+  return `${meterText ? `${meterText} ` : ""}${readings}${ZWSP}`;
 }

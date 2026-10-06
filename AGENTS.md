@@ -6,14 +6,17 @@ dependencies.
 
 ## Current behavior
 
-- Readout: `  42/  68↑ t/s` means live/peak. Both numbers are always visible while enabled.
-- Each number occupies four right-aligned columns. Round low speeds to whole numbers;
+- Readout: `42/68↑ t/s` means live/peak. Both numbers are always visible while enabled.
+- Digits are unpadded; reserve four columns per number and move unused space after `t/s`
+  so the whole block stays fixed-width. Round low speeds to whole numbers;
   show thousands compactly (`1.2k`, `9.9k`); `k` is the only unit, and wider values
   clamp to `999k`. Documentation need not cover speeds above 9,999.
-- Numeric padding uses non-breaking spaces (plus a zero-width prefix when the visual is
-  hidden); Pi's footer sanitizer collapses and trims regular spaces.
+- Trailing padding uses non-breaking spaces plus a zero-width suffix;
+  Pi's footer sanitizer collapses regular spaces and trims whitespace at both edges.
 - Numbers refresh every 500ms; visuals animate every 25ms.
-- Commands: `/tokometer`, `on`, `off`, and `visual single|multi|chase|tach|cycle|off`.
+- Commands: `/tokometer`, `on`, `off`, and `settings`. No aliases or visual subcommands.
+- Native settings menu: Enabled on/off; Visual single/multi/chase/tach/none.
+  Save and apply each change immediately; drain pending saves before closing.
 - Single blinks; multi fills; chase moves a highlight; tach builds within color-coded
   gears. Default: single.
 - Tach: fixed five blocks; saved levels define gear thresholds/colors. Refresh every
@@ -38,6 +41,7 @@ Under `extensions/tokometer/`:
 - `ui.ts` — stateless visuals, formatting, and colors.
 - `tach.ts` — session-local gear hysteresis and within-gear fill calculation.
 - `preferences.ts` — settings defaults, loading, and saving.
+- `settings.ts` — native Pi SettingsList menu and serialized change callbacks.
 - `save-queue.ts` — serialize writes and lock the settings file. Never steal locks.
 
 ## Rules

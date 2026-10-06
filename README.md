@@ -2,21 +2,23 @@
 
 Shows estimated model output tokens per second in Pi’s footer.
 
-Current version: **0.0.4**. See [CHANGE.md](CHANGE.md) for changes.
+Current version: **0.0.5**. See [CHANGE.md](CHANGE.md) for changes.
 
 ```text
-■   42/  68↑ t/s
+■ 42/68↑ t/s
 ```
 
 The first number is live speed; the number with `↑` is the response peak.
-Both refresh twice per second, independently of the animation. Each number is
-right-aligned in four columns so the layout never shifts. Speeds below 1,000
-round to whole numbers; thousands use compact notation such as `1.2k` or `9.9k`.
+Both refresh twice per second, independently of the animation. Digits sit together
+without internal padding: `42/68↑ t/s`. Unused space sits after `t/s`, reserving a
+fixed-width block so the visual and following footer items stay stationary as
+numbers grow. Speeds below 1,000 round to whole numbers; thousands use compact
+notation such as `1.2k` or `9.9k`.
 
 When a response ends, live speed immediately returns to zero. The last peak
 stays visible through idle and the next response’s initial wait, until that
 response produces a new numeric reading. A new session or reload starts at
-`   0/   0↑ t/s`.
+`0/0↑ t/s`.
 
 ## Load
 
@@ -48,19 +50,20 @@ This registers the local directory without copying it. Restart Pi or run
 ## Commands
 
 ```text
-/tokometer                     toggle on/off
-/tokometer on|off              show/hide the saved display
-/tokometer visual single       one blinking square
-/tokometer visual multi        squares fill with speed
-/tokometer visual chase        moving highlight through lit squares
-/tokometer visual tach         tachometer-style rev bar with color-coded gears
-/tokometer visual cycle        single → multi → chase → tach → single
-/tokometer visual off          numbers only
+/tokometer             toggle on/off
+/tokometer on|off      show/hide the saved display
+/tokometer settings    open Pi's native settings menu
 ```
+
+The settings menu has two rows: **Enabled** (on/off) and **Visual**
+(single/multi/chase/tach/none). Use ↑/↓ to select a row, Enter or Space to change
+its value, and Esc to close. Changes save and update the footer immediately;
+closing waits for pending saves. The menu requires Pi's interactive TUI.
 
 Live and peak numbers are always shown while enabled. On/off preserves the
 visual choice. Changing visuals while disabled does not enable the extension.
-Cycling a hidden visual starts at single; single is also the default.
+Single is the default; none shows numbers only. These are the only commands—
+there are no `visual …` commands or compatibility aliases.
 
 ## Visual examples
 
@@ -70,58 +73,50 @@ These are plain-text previews; the actual squares use the colors below.
 **Single** — one blinking square beside live/peak:
 
 ```text
-■   42/  68↑ t/s
+■ 42/68↑ t/s
 ```
 
-```text
-/tokometer visual single
-```
+Choose **Visual → single** in `/tokometer settings`.
 
 **Multi** — the bar fills as speed rises:
 
 ```text
-■□□□□    5/   8↑ t/s
-■■□□□   42/  68↑ t/s
-■■■□□  150/ 180↑ t/s
+■□□□□ 5/8↑ t/s
+■■□□□ 42/68↑ t/s
+■■■□□ 150/180↑ t/s
 ```
 
-```text
-/tokometer visual multi
-```
+Choose **Visual → multi** in `/tokometer settings`.
 
 **Chase** — a bright highlight moves through the lit positions. The carets below
 mark the highlight for this example; they are not part of the footer:
 
 ```text
-■■□□□   42/  68↑ t/s
+■■□□□ 42/68↑ t/s
 ^
-■■□□□   42/  68↑ t/s
+■■□□□ 42/68↑ t/s
  ^
-■■□□□   42/  68↑ t/s
+■■□□□ 42/68↑ t/s
   ^
 ```
 
-```text
-/tokometer visual chase
-```
+Choose **Visual → chase** in `/tokometer settings`.
 
 **Tach** — a tachometer-style bar: five blocks show revs within the current gear. Color identifies the
 gear, using the same saved `levels` as every other visual. Within a gear the lit
 blocks brighten left to right through a five-step shade ladder (45% to 100% of the gear color):
 
 ```text
-■□□□□   18/ 200↑ t/s   peach: building revs
-■■■□□   48/ 200↑ t/s   peach: building again
-■□□□□  100/ 200↑ t/s   yellow: shifted up
-■■■□□  150/ 200↑ t/s   yellow: building again
-■□□□□  200/ 200↑ t/s   green: shifted up
+■□□□□ 18/200↑ t/s      peach: building revs
+■■■□□ 48/200↑ t/s      peach: building again
+■□□□□ 100/200↑ t/s     yellow: shifted up
+■■■□□ 150/200↑ t/s     yellow: building again
+■□□□□ 200/200↑ t/s     green: shifted up
 ```
 
 The labels above explain the colors; they are not part of the footer.
 
-```text
-/tokometer visual tach
-```
+Choose **Visual → tach** in `/tokometer settings`.
 
 Each level's `min` starts a gear; its `color` colors all lit blocks. The fill
 rises toward the next minimum, then resets on an upshift. Gear and fill refresh
@@ -138,14 +133,12 @@ This is an RPM-style visual metaphor; the measurement remains tokens per second.
 **Numbers only** — no visual, same live/peak reading:
 
 ```text
-  42/  68↑ t/s
+42/68↑ t/s
 ```
 
-```text
-/tokometer visual off
-```
+Choose **Visual → none** in `/tokometer settings`.
 
-Try `/tokometer visual cycle` to compare all four visuals. Use `/tokometer off`
+Use `/tokometer settings` to compare visuals. Use `/tokometer off`
 to hide the entire readout and `/tokometer on` to restore it.
 
 ## Visuals and colors
@@ -184,7 +177,8 @@ there is no idle timer.
 
 Settings live in `~/.pi/agent/pi-tokometer.json`, respecting
 `PI_CODING_AGENT_DIR`. Pi’s main `settings.json` only needs the loading entry.
-Commands save display preferences; edit `levels` to adjust thresholds or colors.
+The settings menu saves display preferences; edit `levels` in JSON to adjust
+thresholds or colors. Retired visual identifiers have no compatibility mappings.
 
 This is a valid settings file with the defaults:
 

@@ -3,9 +3,10 @@ import { defaultPreferences, loadPreferences, resolvePreferencesPath, updatePref
 import { AssistantSpeedTracker } from "./speedometer.ts";
 import { speedometerText, type FooterSpeedometer } from "./ui.ts";
 import { TachTracker } from "./tach.ts";
+import { openSettings } from "./settings.ts";
 
 export const STATUS_KEY = "pi-tokometer";
-const USAGE = "Usage: /tokometer [on|off|visual single|multi|chase|tach|cycle|off]";
+const USAGE = "Usage: /tokometer [on|off|settings]";
 
 export default function piTokometer(pi: ExtensionAPI) {
   const path = resolvePreferencesPath();
@@ -68,29 +69,36 @@ export default function piTokometer(pi: ExtensionAPI) {
   }
 
   pi.registerCommand("tokometer", {
-    description: "Show or configure estimated model output tokens per second",
+    description: "Toggle token speed or open settings",
+    getArgumentCompletions: (prefix) => ["on", "off", "settings"]
+      .filter((value) => value.startsWith(prefix)).map((value) => ({ value, label: value })),
     handler: async (args, ctx) => {
-      const command = args.trim().replace(/\s+/g, " ");
-      const valid = ["", "on", "off", "visual single", "visual multi", "visual chase", "visual tach", "visual cycle", "visual off"];
-      if (!valid.includes(command)) { if (ctx.hasUI) ctx.ui.notify(USAGE, "warning"); return; }
+      const command = args.trim();
+      if (!["", "on", "off", "settings"].includes(command)) { if (ctx.hasUI) ctx.ui.notify(USAGE, "warning"); return; }
+      if (command === "settings" && ctx.mode !== "tui") {
+        if (ctx.hasUI) ctx.ui.notify("Tokometer settings require TUI mode.", "warning");
+        return;
+      }
       try {
-        preferences = await updatePreferences(path, (current): Partial<Preferences> => {
-          if (!command || command === "on" || command === "off") return { enabled: command ? command === "on" : !current.enabled };
-          const [, choice] = command.split(" ");
-          if (choice === "off") return { compact: true };
-          // Keep the existing saved identifiers so older settings still load.
-          const order = ["dot", "squares", "chase", "tach"] as const;
-          const visual = choice === "cycle"
-            ? (current.compact ? "dot" : order[(order.indexOf(current.visual) + 1) % order.length]!)
-            : choice === "single" ? "dot"
-            : choice === "multi" ? "squares"
-            : choice === "chase" ? "chase"
-            : choice === "tach" ? "tach" : "dot";
-          return { compact: false, visual };
-        });
+        const apply = async (change: Partial<Preferences>) => {
+          preferences = await updatePreferences(path, () => change);
+          lastReadoutAt = undefined;
+          render(ctx);
+          return preferences;
+        };
+        if (command === "settings") {
+          // Don't open a menu with stale values or an unreadable settings file.
+          const next = await loadPreferences(path);
+          if (JSON.stringify(next.levels) !== JSON.stringify(preferences.levels)) lastReadoutAt = undefined;
+          preferences = next;
+          render(ctx);
+          await openSettings(ctx, preferences, apply);
+          return;
+        }
+        preferences = await updatePreferences(path, (current) => ({ enabled: command ? command === "on" : !current.enabled }));
         lastReadoutAt = undefined;
         render(ctx);
-        if (ctx.hasUI) ctx.ui.notify(`pi-tokometer: ${command || (preferences.enabled ? "on" : "off")}`, "info");
+        if (ctx.hasUI) ctx.ui.notify(`pi-tokometer: ${preferences.enabled ? "on" : "off"}`, "info");
       } catch (error) {
         if (ctx.hasUI) ctx.ui.notify(error instanceof Error ? error.message : String(error), "warning");
       }

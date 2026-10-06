@@ -2,6 +2,23 @@
 
 ## Paused here
 
+Release v0.0.5 includes native settings and packed digits. Only `/tokometer`,
+`on`, `off`, and `settings` remain. `/tokometer settings` uses Pi's native
+SettingsList with Enabled and Visual (single/multi/chase/tach/none), immediate
+save/apply, and pending-save drain on Esc. No old command aliases or retired
+meter/flash mappings. JSON level editing remains available.
+
+Packed digits (`42/68↑ t/s`) put all unused space after `t/s`. The overall
+numeric block still reserves four columns per number. A zero-width suffix
+protects trailing non-breaking spaces from Pi's footer trim, including
+numbers-only and unstyled rendering.
+
+Validation: TypeScript, 35 offline tests, and diff checks. Manual interactive
+menu and visual review remain pending. No live-provider tests or local settings
+edits. The user authorized the patch bump, commit, annotated v0.0.5 tag, push,
+and GitHub Release; no npm publish. Verify publication against origin and
+`gh release view v0.0.5` when resuming.
+
 Release v0.0.4 adds the painted-dial tach brightness ladder and shared thresholds
 0/10/100/200/500 t/s. Validation: TypeScript, 32 offline tests, and diff checks.
 No npm publish. Existing custom settings remain preserved.
@@ -22,18 +39,21 @@ resuming.
 ## Current behavior
 
 - Standalone, local, TUI-only Pi extension.
-- Footer: `■   42/  68↑ t/s` — live/peak, always shown while enabled.
-- Each number is four right-aligned columns: whole numbers below 1,000, compact
+- Footer: `■ 42/68↑ t/s` — live/peak, always shown while enabled.
+- Digits sit together without internal padding. Unused columns follow `t/s`,
+  reserving four columns per number: whole numbers below 1,000, compact
   thousands (`1.2k`, `9.9k`). `k` is the only unit; values at 999,500 t/s and above
   clamp to `999k`. User-facing documentation omits speeds above 9,999.
-- Padding uses non-breaking spaces, with a zero-width prefix for numbers-only statuses:
-  Pi's footer sanitizer collapses regular-space runs and trims edges, so plain padding
-  would shift the row.
+- Trailing padding uses non-breaking spaces with a zero-width suffix:
+  Pi's footer sanitizer collapses regular-space runs and trims whitespace at both
+  edges, so the suffix keeps the reserved columns intact.
 - Numbers refresh every 500ms. This slows the readout; it does not add averaging
   beyond the existing rolling one-second speed estimate.
 - Visual animation refreshes every 25ms, with no idle timer or tick-time disk IO.
-- Commands: `/tokometer`, `on`, `off`, and `visual single|multi|chase|tach|cycle|off`.
-- Visual cycle: single → multi → chase → tach. No audio-style meter or flash option.
+- Commands: `/tokometer`, `on`, `off`, and `settings`; no aliases.
+- Native settings: Enabled on/off and Visual single/multi/chase/tach/none.
+  Changes save/apply immediately; Esc waits for outstanding writes. No visual
+  subcommands, audio-style meter, or flash option.
 - Tach uses five blocks, saved thresholds/colors as gears, 500ms sampling, direct
   downshifts with 5% hysteresis, and no blinking. Top gear spans the max of its
   minimum, previous distinct gap, and 10 t/s (500–1000 with defaults). Pauses dim
@@ -47,7 +67,7 @@ resuming.
   visual reading for three seconds; live immediately becomes zero.
 - Last peak stays visible through idle and the next response's initial wait.
   Replace it at that response's first numeric refresh with measured output.
-  Session start/reload resets the readout to `   0/   0↑ t/s`.
+  Session start/reload resets the readout to `0/0↑ t/s`.
 
 ## Settings and defaults
 
@@ -69,7 +89,8 @@ used if none remain. A command save writes normalized settings. Invalid JSON and
 unsupported versions are not overwritten.
 
 Saved visual identifiers: `dot` = single, `squares` = multi, `chase` = chase.
-Retired `meter`/`flash` identifiers load as chase. `compact` hides the visual.
+Retired `meter`/`flash` identifiers have no mappings and fall back to the default
+single visual. `compact` hides the visual.
 Retired number-visibility flags are ignored and removed on the next save.
 
 The operator's live file currently uses `visual: squares` with the five default
@@ -80,8 +101,11 @@ levels. Earlier custom palettes are backed up beside it as
 
 - `extensions/tokometer/index.ts` — commands, persistent peak, separate numeric
   and visual refresh rates.
-- `extensions/tokometer/preferences.ts` — configurable levels, palette, legacy
-  preference handling.
+- `extensions/tokometer/preferences.ts` — configurable levels, palette; retired
+  visual alias mappings removed.
+- `extensions/tokometer/settings.ts` — native settings menu, queued saves and close drain.
+- `test/settings.test.ts` — rapid changes, immediate application, close drain,
+  failed-save recovery.
 - `extensions/tokometer/ui.ts` — compact formatting, palette rendering, timing, tach bar.
 - `extensions/tokometer/tach.ts` — gear hysteresis and within-gear fill.
 - `test/tach.test.ts` — tach bands, colors, hysteresis, custom settings, and widths.
@@ -106,9 +130,10 @@ Last full run passed:
 git diff --check
 ```
 
-32 tests passed, including fixed-width formatting, compact-unit rounding boundaries,
-footer-sanitizer padding, tach fill/ladder/colors, gear hysteresis, settings changes,
-sampling, pauses, and holds. README's settings JSON was parsed and checked for version 1 and
+35 tests passed, including native menu choices, removed-command rejection,
+completion choices, save ordering/failure recovery, non-TUI guards, fixed-width
+formatting, compact-unit rounding boundaries, footer-sanitizer padding, tach
+fill/ladder/colors, gear hysteresis, settings changes, sampling, pauses, and holds. README's settings JSON was parsed and checked for version 1 and
 its levels array. No automated live-provider tests were run. Manual visual feel,
 narrow-terminal rendering, and light-theme contrast still need hands-on review.
 
@@ -130,12 +155,12 @@ the configured Git remote and `gh` keyring; no credentials were read or printed.
 ## Resume notes
 
 - Start with `AGENTS.md` and this file, then inspect the working-tree diff.
-- Keep single/multi/chase/tach; the user rejected the audio-style visual and changed
-  their mind about grouped flashes.
+- Keep single/multi/chase/tach/none in the native settings menu; no old command
+  aliases or compatibility mappings. The user explicitly asked for lean native Pi.
 - Red means slow, not fast. Keep the softer red → peach → yellow → green → blue
   defaults, and preserve custom levels.
-- Numbers are always live/peak, not selectable modes. Keep four-column fields:
-  `  42/  68↑ t/s`.
+- Numbers are always live/peak, not selectable modes. Keep packed digits and a
+  fixed-width block with unused space after the unit: `42/68↑ t/s`.
 - README and agent instructions no longer describe this as part of another project.
   The original copyright attribution remains in LICENSE as required by MIT.
 - Releases are GitHub-only for now: the user says **"ship it"** to authorize a

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.5 — 2026-10-05
+
+- Replaced the `visual …` command family with `/tokometer settings`: Pi's native Enabled and Visual settings menu, with immediate save/apply. Only toggle, `on`, `off`, and `settings` remain; no old-command aliases.
+- Removed compatibility mappings for retired `meter`/`flash` settings identifiers.
+- Packed live/peak digits together (`42/68↑ t/s`), moving unused space after the unit while keeping the footer block's width stable. Trailing padding survives Pi's status sanitizer.
+
 ## 0.0.4 — 2026-10-03
 
 - Recalibrated shared speed levels and tach gears to 0/10/100/200/500 t/s.
